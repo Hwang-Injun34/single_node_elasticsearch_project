@@ -1,0 +1,235 @@
+services:
+
+  filebeat:
+    container_name: filebeat
+    build:
+      context: ./filebeat
+      dockerfile: Dockerfile
+    user: root
+    restart: always
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro # Docker 로그 접근을 위해 읽기 전용 마운트
+      - /var/run/docker.sock:/var/run/docker.sock:ro # Docker 메타데이터 수집을 위해 소켓 마운트
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro # 설정 파일 마운트
+    env_file: .env
+    environment:
+      - ELASTIC_USERNAME=${ELASTIC_USERNAME} 
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - KIBANA_USERNAME=kibana_system
+      - KIBANA_PASSWORD=${KIBANA_PASSWORD}
+    networks:
+      my_network:
+        ipv4_address: 172.25.0.141
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      kibana:
+        condition: service_started
+    privileged: true # Docker 소켓 접근을 위해 필요
+    cap_add:
+      - SYS_CHROOT # Docker 메타데이터 수집에 필요
+      - DAC_READ_SEARCH # Docker 로그 파일 접근에 필요
+
+
+  proxy_server:
+    depends_on: 
+      filebeat:
+        condition: service_started
+      backend:
+        condition: service_started
+      front_web:
+        condition: service_started
+    image: nginx:1.24.0
+    container_name: proxy 
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./certbot-etc:/etc/letsencrypt
+      - ./certbot-webroot:/usr/share/nginx/html
+      - static_volume:/var/www/static
+    networks:
+      - my_network
+
+
+  front_web:
+    depends_on:
+      filebeat:
+        condition: service_started
+      backend:
+        condition: service_started
+    build:
+      context: ./front_web
+      dockerfile: Dockerfile
+    container_name: front_web
+    restart: always
+    environment:
+      - PORT=3000
+    env_file:
+      - ./front_web/.env
+    expose:
+      - "3000"
+    networks:
+      - my_network
+
+
+  backend:
+    container_name: backend
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    env_file:
+      - ./backend/.env
+    volumes:
+      # - ./backend:/app # 배포 환경에서는 주석 처리
+      - static_volume:/app/static
+      - ./ml_models:/app/ml_models
+    networks:
+      my_network:
+        ipv4_address: 172.25.0.137
+    depends_on:
+      filebeat:
+        condition: service_started
+      redis_server:
+        condition: service_started
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTIC_USERNAME=${ELASTIC_USERNAME}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - ./certbot-etc:/etc/letsencrypt
+      - ./certbot-webroot:/usr/share/nginx/html
+    command: certonly --webroot -w /usr/share/nginx/html \
+            --email pumpkinbee2001@gmail.com \
+            --agree-tos --no-eff-email \
+            -d public-insight.co.kr -d www.public-insight.co.kr
+    networks:
+      - my_network
+
+
+  certbot-cron:
+    image: certbot/certbot
+    container_name: certbot-cron
+    depends_on:
+      - proxy_server
+    volumes:
+      - ./certbot-etc:/etc/letsencrypt
+      - ./certbot-webroot:/usr/share/nginx/html
+    entrypoint: >
+      sh -c 'echo "0 3 * * * certbot renew --quiet && docker exec proxy_server nginx -s reload" | crontab - && crond -f -L /dev/stdout'
+    networks:
+      - my_network
+
+
+  redis_server:
+    image: redis:6.2-alpine
+    container_name: redis_server
+    restart: always
+    networks:
+      my_network:
+        ipv4_address: 172.25.0.138
+
+
+  elasticsearch:
+    build:
+      context:  ./elasticsearch 
+      dockerfile: Dockerfile
+    container_name: elasticsearch
+    restart: always
+    env_file: .env
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - xpack.security.transport.ssl.enabled=false
+      - xpack.security.http.ssl.enabled=false
+    ports:
+      - "127.0.0.1:9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    networks:
+      my_network:
+        ipv4_address: 172.25.0.139
+    healthcheck:
+      test: ["CMD", "curl", "-s", "-f", "-u", "${ELASTIC_USERNAME}:${ELASTIC_PASSWORD}", "http://localhost:9200/_cluster/health?wait_for_status=yellow"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.10
+    container_name: kibana
+    ports:
+      - "127.0.0.1:5600:5601"
+    env_file: .env 
+    environment:
+      - ELASTICSEARCH_HOSTS=["http://elasticsearch:9200"]
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
+      - XPACK_SECURITY_ENCRYPTIONKEY=${XPACK_SECURITY_ENCRYPTIONKEY}
+      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY}
+      - XPACK_REPORTING_ENCRYPTIONKEY=${XPACK_REPORTING_ENCRYPTIONKEY}
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      my_network:
+        ipv4_address: 172.25.0.140
+
+
+  neo4j:
+    # [버전] 안정성이 검증된 Neo4j 4.4의 최신 패치 버전을 사용함.
+    image: neo4j:4.4.32
+    container_name: neo4j
+    restart: unless-stopped
+    ports:
+      # 7474: 웹 브라우저 인터페이스 접근 포트
+      # 7687: 우리 백엔드(Python)가 연결할 드라이버 포트
+      - "7474:7474"
+      - "7687:7687"
+    env_file: .env
+    volumes:
+      # [데이터 영속성] 컨테이너가 삭제되어도 데이터는 이곳에 안전하게 보존됨.
+      - neo4j_data:/data
+    environment:
+      - NEO4J_PLUGINS=["apoc", "graph-data-science"] #apoc, gds 플러그인 사용
+      # [인증] .env 파일에서 사용자 이름과 비밀번호를 가져와 설정함.
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+      - NEO4J_dbms_security_procedures_unrestricted=gds.*,apoc.*
+    networks:
+      my_network:
+        ipv4_address: 172.25.0.142
+
+
+networks:
+  my_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+
+
+volumes:  
+  db_data:
+  certbot-webroot:
+  certbot-etc:
+  esdata:
+    driver: local
+  static_volume:
+  filebeat_data:
+    driver: local
+  neo4j_data:
+    driver: local

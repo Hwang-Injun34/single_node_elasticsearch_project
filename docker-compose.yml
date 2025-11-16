@@ -1,0 +1,84 @@
+services:
+
+  fastapi:
+    container_name: fastapi
+    build: 
+      context: ./fastapi_app
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/pdfs:/app/pdfs
+    env_file:
+      - .env
+    restart: always
+    environment:
+      DATABASE_URL: "mysql+pymysql://ngms:ms123@shared_mysql_db:3306/mydb"
+      ELASTICSEARCH_HOST: "http://elasticsearch:9200"
+      ELASTIC_USERNAME: "${ELASTIC_USERNAME}"
+      ELASTIC_PASSWORD: "${ELASTIC_PASSWORD}"
+    depends_on:
+      - elasticsearch
+    networks:
+      - default
+      - common_infra_network
+
+
+  frontend:
+    build: ./frontend_app
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_BASE_URL: "http://fastapi:8000"
+    depends_on:
+      - fastapi
+    networks:
+      - default
+
+
+  elasticsearch:
+    build:
+      context:  ./elasticsearch 
+      dockerfile: Dockerfile
+    container_name: elasticsearch
+    restart: always
+    env_file: .env
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - xpack.security.transport.ssl.enabled=false
+      - xpack.security.http.ssl.enabled=false
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - ./esdata:/usr/share/elasticsearch/data
+    networks:
+      - default
+
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.10
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    restart: always
+    env_file: .env
+    environment:
+      ELASTICSEARCH_HOSTS: 'http://elasticsearch:9200'
+      ELASTICSEARCH_USERNAME: elastic
+      ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD}
+      XPACK_SECURITY_ENCRYPTIONKEY: ${XPACK_SECURITY_ENCRYPTIONKEY}
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY}
+      XPACK_REPORTING_ENCRYPTIONKEY: ${XPACK_REPORTING_ENCRYPTIONKEY}
+    depends_on:
+      - elasticsearch
+    networks:
+      - default
+
+networks:
+  common_infra_network:
+    external: true
+    name: common_infra_network
