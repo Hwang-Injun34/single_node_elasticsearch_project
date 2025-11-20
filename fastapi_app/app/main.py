@@ -6,7 +6,13 @@ from contextlib import asynccontextmanager
 
 # 내부 모듈 예시 (프로젝트별로 필요에 따라 추가)
 from app.database.connection import engine, Base
-# from app.routers import api_router
+from app.api.api import api_router
+
+
+from app.models.reports import Report
+from app.models.report_eras import ReportEra 
+from app.models.crawler_index import CrawlIndex 
+
 
 # ---------------------------
 #  로깅 설정
@@ -52,7 +58,7 @@ def create_app() -> FastAPI:
     )
 
     # 라우터 등록 (예시)
-    # app.include_router(api_router, prefix="/api/v1")
+    app.include_router(api_router, prefix="/api/v1")
 
     return app
 

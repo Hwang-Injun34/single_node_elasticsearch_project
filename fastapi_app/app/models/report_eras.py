@@ -15,4 +15,4 @@ class ReportEra(Base):
     site_type = Column(String(50), nullable=True)
 
     # 시대 : '통일신라', '조선시대'
-    era = Column(String(50), nullalbe=True)
+    era = Column(String(50), nullable=True)

@@ -2,11 +2,14 @@
 set -e
 
 # ===============================
-# 외부 환경 변수 파일 로드
+# 1. 환경 변수 파일 로드 부분 삭제 (수정됨)
 # ===============================
-source /path/to/secrets.env
+# Docker Compose의 'env_file' 설정을 통해 이미 환경 변수가 주입되었습니다.
+# source /path/to/secrets.env  <-- 이 줄을 주석 처리하거나 삭제했습니다.
 
+# 기본값 설정 (만약 변수가 비어있을 경우를 대비)
 ELASTIC_URL="http://localhost:9200"
+ELASTIC_USERNAME=${ELASTIC_USERNAME:-elastic}
 
 # ===============================
 # Elasticsearch 준비 대기
@@ -52,4 +55,3 @@ else
 fi
 
 echo "Elasticsearch user setup complete."
-

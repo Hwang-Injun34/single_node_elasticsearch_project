@@ -13,7 +13,7 @@ services:
       - .env
     restart: always
     environment:
-      DATABASE_URL: "mysql+pymysql://ngms:ms123@shared_mysql_db:3306/mydb"
+      DATABASE_URL: "mysql+aiomysql://ngms:ms123@shared_mysql_db:3306/KoreaHistory"
       ELASTICSEARCH_HOST: "http://elasticsearch:9200"
       ELASTIC_USERNAME: "${ELASTIC_USERNAME}"
       ELASTIC_PASSWORD: "${ELASTIC_PASSWORD}"
@@ -38,7 +38,7 @@ services:
 
   elasticsearch:
     build:
-      context:  ./elasticsearch 
+      context:  ./elasticsearch_app
       dockerfile: Dockerfile
     container_name: elasticsearch
     restart: always

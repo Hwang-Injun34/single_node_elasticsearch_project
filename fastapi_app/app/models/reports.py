@@ -10,9 +10,9 @@ class Report(Base):
     
     # -- Main Info --
     # 허가번호
-    permit_number = Column()
+    permit_number = Column(String(50), nullable=True)
     # 보고서명
-    title = Column()
+    title = Column(String(255), nullable=False)
     # 유적/사업명
     project_name = Column(String(255), index=True, nullable=True)
     # 발간기관
