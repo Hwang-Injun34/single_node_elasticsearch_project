@@ -1,16 +1,35 @@
+import os
+from typing import Dict 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# source .venv/bin/activate
 
 class Settings(BaseSettings):
     
+    # -- Mysql --
+    # Database URL
     # Docker의 environment 섹션에 있는 값들을 자동으로 읽어옴
     DATABASE_URL: str 
 
-    #Elasticsearch 설정
+    # -- Elasticsearch --
+    # Elasticsearch 설정
     ELASTICSEARCH_HOST: str = "http://elasticsearch:9200"
     ELASTIC_USERNAME: str = ""
     ELASTIC_PASSWORD: str = ""
 
-    DEBUG: bool = False 
+
+    # -- NationalAssembly --
+    NA_BASE_URL: str = "https://record.assembly.go.kr"
+    NA_LIST_URL: str = "/assembly/mnts/apdix/list.do"
+    NA_MAIN_URL: str = "/assembly/mnts/main.do"
+    #https://record.assembly.go.kr/assembly/mnts/apdix/apdixDownload.do?fileId=1362270
+
+    # -- PDF 저장 경로 --
+    BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # app 폴더 상위
+    ROOT_DIR: str=  os.path.dirname(BASE_DIR) # 프로젝트 루트 (/app)
+    PDF_DIR: str= os.path.join(ROOT_DIR, "static", "pdfs")
+    DEBUG: bool = False
+
 
     model_config = SettingsConfigDict(
         env_file=".env",

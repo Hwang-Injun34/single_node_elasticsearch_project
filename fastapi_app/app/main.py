@@ -9,9 +9,7 @@ from app.database.connection import engine, Base
 from app.api.api import api_router
 
 
-from app.models.reports import Report
-from app.models.report_eras import ReportEra 
-from app.models.crawler_index import CrawlIndex 
+from app.models.document import Document
 
 
 # ---------------------------

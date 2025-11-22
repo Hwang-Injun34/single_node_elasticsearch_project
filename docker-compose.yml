@@ -8,12 +8,12 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data/pdfs:/app/pdfs
+      - ./fastapi_app:/app
     env_file:
       - .env
     restart: always
     environment:
-      DATABASE_URL: "mysql+aiomysql://ngms:ms123@shared_mysql_db:3306/KoreaHistory"
+      DATABASE_URL: "mysql+aiomysql://ngms:ms123@shared_mysql_db:3306/PolitiSearch"
       ELASTICSEARCH_HOST: "http://elasticsearch:9200"
       ELASTIC_USERNAME: "${ELASTIC_USERNAME}"
       ELASTIC_PASSWORD: "${ELASTIC_PASSWORD}"

@@ -1,0 +1,5 @@
+# 모든 컨테이너 멈추기
+docker-compose down
+
+# 컨테이너 재시작
+docker-compose up -d
