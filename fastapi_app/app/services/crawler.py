@@ -18,16 +18,23 @@ os.makedirs(settings.PDF_DIR, exist_ok=True)
 class NationalAssemblyCrawlerService:
     def __init__(self, repo: NationalAssemblyCrawlerRepository):
         self.db_repo = repo
-    # ----------------------------------------
-    # 메인 크롤링 실행
-    # ----------------------------------------
+
+    # ===============================
+    # 메인 크롤링 실행 (위원회 회의록 - JSON API 방식)
+    # ===============================
     async def na_crawl(self, filters: CrawlerFilter):
         base_url = settings.NA_BASE_URL 
-        list_url = base_url + settings.NA_LIST_URL 
+
+        # CSRF 토큰을 얻기 위한 메인 화면
         main_url = base_url + settings.NA_MAIN_URL
+
+        # 실제 데이터 요청할 API 주소
+        api_url = base_url + settings.NA_API_URL
+        
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36",
-            "Referer": main_url
+            "Referer": main_url,
+            "Origin": base_url
         }
 
         all_data = []
@@ -35,180 +42,163 @@ class NationalAssemblyCrawlerService:
         total_collected_count = 0 # 현재까지 수집한 총 개수
 
         # 날짜 포맷 변환(date -> "YYY.MM.DD")
-        sdate_str = filters.start_date.strftime("%Y.%m.%d") if filters.start_date else ""
-        edate_str = filters.end_date.strftime("%Y.%m.%d") if filters.end_date else ""
-
-        print(f"크롤링 시작 | 제한: {filters.limit}개 | 대수: {filters.parliament_num or '전체'} | 기간: {sdate_str}~{edate_str}")
+        sdate_str = filters.beginDate.strftime("%Y%m%d") if filters.beginDate else ""
+        edate_str = filters.endDate.strftime("%Y%m%d") if filters.endDate else ""
+        print(f"크롤링 시작 | Limit: {filters.limit} | 기간: {sdate_str}~{edate_str}")
 
         async with httpx.AsyncClient(headers=headers, timeout=30.0, follow_redirects=True) as client:
-            
-            # [Step 1] 메인 페이지 접속하여 세션 획득
-            print("국회 사이트 접속 중..(세션 획득)")
-            await client.get(main_url)
 
             # --------------------------
-            # [Loop] 페이지 반복 시작
+            # [Step 1] 메인 페이지 접속하여 CSRF 토큰 획득
             # -------------------------- 
-            while True: 
+            print("[메인 페이지] 접속 및 보안 토큰 확보 중...")
+            try:
+                main_res = await client.get(main_url)
+                soup = BeautifulSoup(main_res.text, "html.parser")
 
-                # 목표 수량 도달 시 종료 로직
-                # limit이 -1 이면 무제한 (카운트 체크 안 함)
-                # limit이 양수이면 카운트 체크
+                # <meta name="_csrf" content="..."> 태그 찾기
+                csrf_meta = soup.select_one("meta[name='_csrf']")
+
+                if not csrf_meta:
+                    print("CSRF 토큰 찾기 [실패] - 사이트 구조 변경")
+                    return []
+                csrf_token = csrf_meta['content']
+
+            except Exception as e:
+                print(f"초기 접속 [실패]: {e}")
+                return []
+            
+            # --------------------------
+            # [Step 2] 데이터 요청 루프 (Pagination)
+            # -------------------------- 
+            while True:
+                # 목표 수량 도달 체크 (-1: 무제한)
                 if filters.limit != -1 and total_collected_count >= filters.limit:
-                    print(f"목표 수량({filters.limit}개) 도달로 종료")
+                    print(f"목표 수량({filters.limit}개) 달성으로 [종료]")
                     break
 
-                print(f"[페이지 {current_page}] 수집 시작")
+                print(f"\n[Page {current_page}] API 요청 중...")
 
-                # 쿼리 파라미터 설정(URL 뒤에 붙는 것들)
-                # https://record.assembly.go.kr/assembly/mnts/apdix/list.do?schwrd=&sel_date=&sdate=&flag=all&sel_group=&limit=&page=6&sel_align=&edate=&list_style=&schword=
-                params = {
-                    "page": current_page,
-                    "limit": 10, 
-                    "sdate": sdate_str,
-                    "edate": edate_str,
-                    "flag": "all",
-                    "schwrd":"","sel_date":"",
-                    "sel_group": "", "sel_align": "",
-                    "list_style": "", "schword": ""
+                # POST 데이터 구성(Form Data)
+                # menuNo=600045&pageIndex=2&cntsDivCd=CMMIT&committeeCd=&title=&beginDate=&endDate=&_csrf=dce41426-91b1-4c2a-aa68-772fa13222cc
+                payload = {
+                    "menuNo": "600045",          # 메뉴번호 (고정)
+                    "pageIndex": str(current_page),
+                    "cntsDivCd": "CMMIT",        # 콘텐츠 구분 (위원회)
+                    "committeeCd": "",           # 전체 위원회
+                    "title": "",                 # 검색어
+                    "beginDate": sdate_str,      # 시작일
+                    "endDate": edate_str,        # 종료일
+                    "_csrf": csrf_token          # 토큰 필수
                 }
 
-                # [Step 2] 목록 페이지 요청(params 포함)
-                res = await client.get(list_url, params=params)
+                try: 
+                    # API 호출 (POST)
+                    res = await client.post(api_url, data=payload)
+                    data = res.json()
 
-                # [Step 3] 파싱 시작
-                soup = BeautifulSoup(res.text, "html.parser")
-                tbody = soup.select_one("#listData")
-                
-                # 종료 조건 1: 목록 태그가 아예 없을 때
-                if not tbody:
-                    print("데이터 목록(tbody)을 찾을 수 없음")
-                    break
-            
-                rows = tbody.select("tr")
+                    # 결과 리스트 호출
+                    result_list = data.get("resultList", [])
 
-                # 종료 조건 2: 행이 하나도 없거나, '데이터가 없습니다' 문구가 있을 때
-                if not rows or (len(rows) == 1 and "데이터가" in row[0].text):
-                    print("더 이상 데이터가 없습니다. (마지막 페이지)")
-                    break 
+                    # 종료 조건: 데이터가 없으면 끝
+                    if not result_list:
+                        print("더 이상 데이터가 없음")
+                        break
 
-                print(f"{len(rows)}개의 문서 발견 (현재 페이지)")
+                    print(f"{len(result_list)}개의 문서 발견")
 
-                # --- 페이지 내 행 반복 ---
-                for row in rows: 
-                    # 목표 수량 채우면 즉시 종료
-                    if filters.limit != -1 and total_collected_count >= filters.limit: break
+                    # --- 리스트 반복 처리 ---
+                    for item in result_list:
+                        # 목표 수량 체크
+                        if filters.limit != -1 and total_collected_count >= filters.limit: break 
 
-                    cols = row.select("td")
-                    if len(cols) < 6: continue
-
-                    try: 
-                        # --- 1. 기본 정보 추출 ---
-                        parliament = cols[1].text.strip()
-                        meeting_series = cols[2].text.strip()
-                        meeting_number = cols[3].text.strip()
-                        date_str = cols[5].text.strip()
-
-                        # ----- [파이썬 필터링] 서버가 모소 거른 조건 체크
-
-                        # (1) 대수 필터(에: '22'입력 시 '제22대' 포함 여부 확인
-                        if filters.parliament_num:
-                            if filters.parliament_num not in parliament:
+                        try:
+                            """
+                            "rn": 1,
+                            "conferNum": 55815,
+                            "classCode": 2,
+                            "className": "상임위원회",
+                            "committeeId": "9700409",
+                            "committeeName": "외교통일위원회",
+                            "title": "제22대 제429회 6차 외교통일위원회 ",
+                            "vodLinkUrl": null,
+                            "confLinkUrl": "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=55815&type=summary",
+                            "hwpLinkUrl": "https://record.assembly.go.kr/assembly/viewer/minutes/download/hwp.do?id=55815",
+                            "pdfLinkUrl": "https://record.assembly.go.kr/assembly/viewer/minutes/download/pdf.do?id=55815",
+                            "confViewerUrl": "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=55815&type=view",
+                            "confDate": "2025-11-19"
+                            """
+                            # ---- 1. JSON 데이터 파싱 ----
+                            className = item.get("committeeName", "").strip()
+                            committeeName = item.get("committeeName", "").strip()
+                            confDate = item.get("confDate", "").strip()
+                            conferNum = str(item.get("conferNum"))
+                            pdfLinkUrl = item.get("pdfLinkUrl")
+                            title = item.get("title", "").strip()
+                            
+                            if not pdfLinkUrl:
                                 continue 
 
-                        # (2) 날짜 2차 검증
-                        # date_str -> date 객체 변환
-                        try:
-                            row_date = datetime.strptime(date_str.rstrip('.'), "%Y.%m.%d").date()
-                            
-                            if filters.start_date and row_date < filters.start_date: continue
-                            if filters.end_date and row_date > filters.end_date: continue
-                        except:
-                            pass # 날짜 파싱 에러나면 일단 진행 (or 스킵)
+                            # ---- 2. 중복 체크 (DB) ----
+                            if await self.db_repo.is_crawled(conferNum=conferNum):
+                                print(f"[Skip] 이미 수집: {title}")
+                                continue 
 
+                            print(f"수집 [시작]: {title}")
 
-                        # --- 2. 제목 및 링크 추출 ---
-                        subject_td = cols[4]
-                        a_tag = subject_td.select_one("a")
-
-                        if not a_tag: continue 
-
-                        title = a_tag.text.strip() # 제목
-                        href = a_tag.get('href') # 파일
-
-                        # href가 상대경로면 전체 URL 생성
-                        full_href = base_url + href 
-                        parsed = urlparse(full_href)
-                        qs = parse_qs(parsed.query)
-                    
-                        # --- 3. ID 추출 --- 
-                        # 중복 방지
-                        file_id = qs.get('fileId', [None])[0]
-
-                        if not file_id:
-                            print(f"파일 ID 추출 실패 {href}")
-                            continue 
-
-                        # --- 4. 중복 체크 ---
-                        if await self.db_repo.is_crawled(file_id=file_id):
-                            print(f"[Skip] 이미 수집됨: {title} ({file_id})")
-                            continue
-
-                        print(f"수집 시작: {title}")
-
-
-                        # --- 5. 파일명 생성(특수문자 제거) ---
-                        safe_title = re.sub(r'[\\/*?:"<>|]', "", title)[:50]
-                        filename = f"{date_str.rstrip('.')}_{file_id}_{safe_title}.pdf"
-                        file_path = os.path.join(settings.PDF_DIR, filename)
-
-                        # --- 6. 다운로드 실행 ---
-                        print(f"다운로드...{full_href}")
-                        file_res = await client.get(full_href)
-
-                        if file_res.status_code == 200:
-                            with open(file_path, "wb") as f:
-                                f.write(file_res.content)
-
-                            # --- 7. 날짜 변환 (2024.11.04 -> date 객체)
+                            # ---- 3. 날짜 객체 변환 ----
                             try:
-                                meeting_date = datetime.strptime(date_str.rstrip('.'), "%Y.%m.%d").date()   
-                            except:
-                                meeting_date = None
-                        
-                            # --- 8. DB 저장 ---
-                            doc_data = DocumentCreate(
-                                parliament=parliament,
-                                meeting_series=meeting_series,
-                                meeting_number=meeting_number,
-                                title=safe_title,
-                                file_id=file_id,
-                                file_url=full_href,
-                                file_path=file_path,
-                                meeting_date=meeting_date
-                            )
+                                # 하이픈(-) 포맷에 맞춰 파싱
+                                parsed_conf_date = datetime.strptime(confDate, "%Y-%m-%d").date()
+                            except Exception:
+                                # 날짜가 없거나 형식이 다르면 None 처리
+                                parsed_conf_date = None
 
-                            await self.db_repo.save_document(doc_data.model_dump()) 
-                            print("저장 완료")
+                            # ---- 4. 파일명 생성 및 경로 설정 ----
+                            safe_title = re.sub(r'[\\/*?:"<>|]', "", title)[:50]
+                            filename = f"{parsed_conf_date}_{conferNum}_{safe_title}.pdf"
+                            file_path = os.path.join(settings.PDF_DIR, filename)
 
-                            all_data.append({"id": file_id, "status": "success"})
-                            total_collected_count += 1
+                            # ---- 5. 파일 다운로드 ----
+                            file_res = await client.get(pdfLinkUrl)
+                            if file_res.status_code == 200:
+                                with open(file_path, "wb") as f:
+                                    f.write(file_res.content)
 
-                            # 서버 부하 방지
-                            await asyncio.sleep(random.uniform(0.5, 1.5))
-                
-                        else:
-                            print(f"다운로드 실패: {file_res.status_code}")
-                    except Exception as e:
-                        print(f"처리 중 에러: {e}")
-                        continue
-                
-                # 페이지 내 루프 끝
-                # 다음 페이지로 이동
-                current_page += 1 
+                                # ---- 6. DB 저장 -----
+                                doc_data = DocumentCreate(
+                                    className=className,
+                                    committeeName=committeeName,
+                                    confDate=parsed_conf_date,
+                                    conferNum=conferNum,
+                                    pdfLinkUrl=pdfLinkUrl,
+                                    file_path=file_path,
+                                    title=safe_title
+                                )
 
-                # 페이지 넘길 때도 딜레이 필요
-                await asyncio.sleep(1)
-        print(f"크롤링 종료. 총{total_collected_count}개 수집 완료.")
+                                await self.db_repo.save_document(doc_data.model_dump())
+                                    
+                                all_data.append({"id":conferNum, "status":"success"})
+                                total_collected_count += 1 
+
+                                await asyncio.sleep(random.uniform(0.5, 1.2))
+                            else:
+                                print(f"다운로드 [실패] ({file_res.status_code})")
+
+
+                        except Exception as e:
+                            print(f"항목 처리 중 [에러]: {e}")
+                            continue
+                    
+                    # --- 페이지 증가 ---
+                    current_page += 1 
+                    await asyncio.sleep(1) # 페이지 넘김 대기
+
+                except Exception as e:
+                    print(f"페이지 요청 [실패]: {e}")
+                    break 
+
+        print(f"크롤링 [종료] | 총 {total_collected_count}개 수집 완료")
         return all_data
+
 

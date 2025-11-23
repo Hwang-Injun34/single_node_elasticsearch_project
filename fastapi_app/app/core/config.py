@@ -19,10 +19,9 @@ class Settings(BaseSettings):
 
 
     # -- NationalAssembly --
-    NA_BASE_URL: str = "https://record.assembly.go.kr"
-    NA_LIST_URL: str = "/assembly/mnts/apdix/list.do"
-    NA_MAIN_URL: str = "/assembly/mnts/main.do"
-    #https://record.assembly.go.kr/assembly/mnts/apdix/apdixDownload.do?fileId=1362270
+    NA_BASE_URL: str = "https://www.assembly.go.kr"
+    NA_MAIN_URL: str = "/portal/main/contents.do?menuNo=600045"
+    NA_API_URL: str = "/portal/cnts/cntsCmmit/listMtgRcord.json"
 
     # -- PDF 저장 경로 --
     BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # app 폴더 상위

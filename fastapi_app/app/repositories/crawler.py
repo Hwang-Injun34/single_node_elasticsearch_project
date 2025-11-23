@@ -13,11 +13,11 @@ class NationalAssemblyCrawlerRepository:
     # ----------------------------------------
     # 1. 중복 체크 (이미 수집된 ID인가?)
     # ----------------------------------------
-    async def is_crawled(self, file_id: str) -> bool:
+    async def is_crawled(self, conferNum: str) -> bool:
         """
         doc_id(문서 고유번호)가 DB에 존재하는지 확인
         """
-        stmt = select(Document).where(Document.file_id == file_id)
+        stmt = select(Document).where(Document.conferNum == conferNum)
         result = await self.db.execute(stmt)
 
         return result.scalar_one_or_none() is not None 
@@ -31,14 +31,13 @@ class NationalAssemblyCrawlerRepository:
         크롤링한 문서 정보를 DB에 저장
         """
         document = Document(
-            parliament = doc_data["parliament"],
-            meeting_series = doc_data["meeting_series"],
-            meeting_number = doc_data["meeting_number"],
-            title = doc_data["title"],
-            file_id  = doc_data["file_id"],
-            file_url = doc_data["file_url"],
+            className = doc_data["className"],
+            committeeName= doc_data["committeeName"],
+            confDate = doc_data["confDate"],
+            conferNum = doc_data["conferNum"],
+            pdfLinkUrl  = doc_data["pdfLinkUrl"],
             file_path  = doc_data["file_path"],
-            meeting_date = doc_data["meeting_date"]
+            title  = doc_data["title"]
         )
 
         try: 

@@ -6,8 +6,8 @@ from app.schema.crawler import CrawlerFilter
 
 router = APIRouter()
 
-@router.get('/test')
-async def get_national_assembly_crawler(
+@router.post('/test')
+async def national_assembly_crawler(
     filters: CrawlerFilter,
     crawler_service: NationalAssemblyCrawlerService = Depends(get_crawl_service)
 ):  
