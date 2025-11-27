@@ -1,15 +1,38 @@
 from sqlalchemy import Column, String, DateTime, Date
 from sqlalchemy.dialects.mysql import BIGINT
 from datetime import datetime
+from sqlalchemy.orm import relationship
+
 from app.database.connection import Base
 
 class Document(Base):
     __tablename__ = "documents"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="내부 관리용 고유 ID")
+
     className = Column(String(50), nullable=True, comment="회의종류: OO위원회")
+    
     committeeName = Column(String(50), nullable=True, comment="위원회: OOO위원회")
+    
     confDate = Column(Date, nullable=True, index=True, comment="회의일")
+    
     conferNum = Column(String(50), nullable=False, index=True, comment="원본 사이트 문서 ID (중복 체크용)")
+    
     pdfLinkUrl = Column(String(500), nullable=False, comment="PDF 다운로드 URL")
+    
     file_path = Column(String(500), nullable=True, comment="서버 PDF 위치")
+    
     title = Column(String(255), nullable=False, comment="제목")
+
+    # 관계 설정
+    process = relationship(
+        "DocumentProcess",
+        back_populates="document",
+        uselist=False, # 1:1 관계
+        cascade="all, delete-orphan"
+    )
+
+    segments = relationship(
+        "DocumentSegment",
+        back_populates="document",
+        cascade="all, delete-orphan"
+    )

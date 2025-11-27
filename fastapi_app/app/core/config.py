@@ -2,14 +2,13 @@ import os
 from typing import Dict 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# source .venv/bin/activate
 
 class Settings(BaseSettings):
     
     # -- Mysql --
     # Database URL
     # Docker의 environment 섹션에 있는 값들을 자동으로 읽어옴
-    DATABASE_URL: str 
+    DATABASE_URL: str = "mysql+aiomysql://ngms:ms123@shared_mysql_db:3306/PolitiSearch"
 
     # -- Elasticsearch --
     # Elasticsearch 설정

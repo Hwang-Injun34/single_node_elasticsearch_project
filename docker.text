@@ -12,3 +12,9 @@ docker-compose up -d
   "beginDate": "2025-11-13",
   "endDate": "2025-11-13"
 }
+
+
+source .venv/bin/activate
+
+pytest test_pdf_extraction.py -s
+pytest test_pdf_extraction.py -q

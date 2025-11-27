@@ -8,3 +8,4 @@ from app.repositories.crawler import NationalAssemblyCrawlerRepository
 # -- 크롤링 --
 async def get_crawl_service(db: AsyncSession = Depends(get_db)) -> NationalAssemblyCrawlerService:
     return NationalAssemblyCrawlerService(NationalAssemblyCrawlerRepository(db))
+
