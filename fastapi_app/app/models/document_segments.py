@@ -14,7 +14,7 @@ class DocumentSegment(Base):
     document_id = Column(BIGINT, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # 세그먼트 식별 정보
-    page_number = Column(BIGINT, nullalbe=False)
+    page_number = Column(BIGINT, nullable=False)
 
     # 발언자 정보
     speaker_name = Column(String(50), nullable=True, index=True)
@@ -22,8 +22,11 @@ class DocumentSegment(Base):
 
     original_text = Column(LONGTEXT, nullable=False) 
 
+    # Track A 결과
     keyworkds = Column(JSON, nullable=True)
 
+
+    # Track B 결과
     embedding_vector = Column(JSON, nullable=True)
 
 

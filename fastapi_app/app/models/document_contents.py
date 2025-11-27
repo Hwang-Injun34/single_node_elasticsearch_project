@@ -15,7 +15,7 @@ class DocumentContent(Base):
     # 페이지별 텍스트 저장
     compressed_page_texts = Column(LargeBinary, nullable=True)
 
-    # 화자별 텍스트 저장
+    # 전체 화자별 텍스트 저장
     speaker_segments = Column(JSON, nullable=True)
 
     # 관계 설정

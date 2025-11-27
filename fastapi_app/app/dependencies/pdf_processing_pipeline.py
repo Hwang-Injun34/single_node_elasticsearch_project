@@ -6,9 +6,13 @@ from app.dependencies.db import get_db
 from app.services.pdf_pipeline.pdf_process import PdfProcessService
 from app.services.pdf_pipeline.p01_pdf_extraction import PdfExtractionService
 from app.services.pdf_pipeline.p02_pdf_transcript_parser import PdfTranscriptParserService
+from app.services.pdf_pipeline.p03_track_a import PdfKeywordExtractorService 
+from app.services.pdf_pipeline.p03_track_b import PdfEmbeddingExtractorService
 
 from app.repositories.pdf_process.p01_pdf_extraction import PdfExtractionRepository
 from app.repositories.pdf_process.p02_pdf_transcript_parser import PdfTranscriptParserRepository
+from app.services.pdf_pipeline.p03_track_a import PdfKeywordExtractorRepository 
+from app.services.pdf_pipeline.p03_track_b import PdfEmbeddingExtractorRepository
 
 # ===============================
 # pdf 파이프라인 단계별 의존성 주입
@@ -23,19 +27,29 @@ async def get_pdf_extraction_service(db: AsyncSession = Depends(get_db)) -> PdfE
 async def get_pdf_transcript_parser_service(db: AsyncSession = Depends(get_db)) -> PdfTranscriptParserService:
     return PdfTranscriptParserService(PdfTranscriptParserRepository(db))
 
+# -- [3단계_Track A: 키워드 추출] --
+async def get_pdf_track_a_service(db: AsyncSession = Depends(get_db)) -> PdfKeywordExtractorService:
+    return PdfKeywordExtractorService(PdfKeywordExtractorRepository(db))
+
+
+# -- [3단계_Track B: 임베딩 벡터 생성] --
+async def get_pdf_track_b_service(db: AsyncSession = Depends(get_db)) -> PdfEmbeddingExtractorService:
+    return PdfEmbeddingExtractorService(PdfEmbeddingExtractorRepository(db))
 
 
 # -- [통합: PDF Data Pipeline Service Factory] --
-
 async def get_pdf_pipeline_service(
     # [수정] Depends가 리턴하는 것은 'Service'이므로 타입 힌트도 Service여야 합니다.
     p01_service: PdfExtractionService = Depends(get_pdf_extraction_service),
-    p02_service: PdfTranscriptParserService = Depends(get_pdf_transcript_parser_service)
+    p02_service: PdfTranscriptParserService = Depends(get_pdf_transcript_parser_service),
+    p03_track_a_service: PdfKeywordExtractorService = Depends(get_pdf_track_a_service),
+    p03_track_b_service: PdfEmbeddingExtractorService = Depends(get_pdf_track_b_service),
 ) -> PdfProcessService:
     
-
     # 두 개의 하위 서비스를 통합 서비스에 주입
     return PdfProcessService(
         p01_service=p01_service, 
-        p02_service=p02_service
+        p02_service=p02_service,
+        p03_track_a_service=p03_track_a_service,
+        p03_track_b_service=p03_track_b_service
     )

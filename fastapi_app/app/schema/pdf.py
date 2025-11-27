@@ -38,6 +38,26 @@ class DocumentPageSegmentsSchema(BaseModel):
     pages: List[PageSegmentsSchema]
 
 
+# ===============================
+#           [3단계 - Track A]
+# ===============================
+
+# JSON 읽기
+class SegmentInputSchema(BaseModel):
+    segment_id: str 
+    page: int 
+    speaker_name: Optional[str] = None 
+    speaker_role: Optional[str] = None 
+    text: str 
+
+class DocumentSegmentSaveSchema(BaseModel):
+    document_id: int 
+    page_number: int 
+    speaker_name: Optional[str]
+    speaker_role: Optional[str]
+    original_text: str 
+    keywords: List[str] # JSON으로 저장될 예정
+
 
 """
 {

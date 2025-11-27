@@ -18,3 +18,6 @@ source .venv/bin/activate
 
 pytest test_pdf_extraction.py -s
 pytest test_pdf_extraction.py -q
+
+
+pytest test_segment_keyword -q

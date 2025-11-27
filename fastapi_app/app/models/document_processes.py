@@ -10,6 +10,8 @@ class ProcessStatus(str, enum.Enum):
     PENDING = "PENDING"          # 대기 중 (아직 시작 안함)
     EXTRACTED = "EXTRACTED"      # 1단계(PDF 텍스트 추출) 완료
     PARSED = "PARSED"            # 2단계(발언자 파싱) 완료 / DB 저장 완료
+    KEYWORD = "KEYWORD"          # 3-a단계 키워드 추출 완료
+    EMBEDDING = "EMBEDDING"      # 3-b단계 임베딩 벡터 생성 완료
     COMPLETED = "COMPLETED"      # 전체 완료 (추후 인덱싱 등 포함 시)
     FAILED = "FAILED"            # 처리 실패
 

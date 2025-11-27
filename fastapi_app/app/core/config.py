@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # app 폴더 상위
     ROOT_DIR: str=  os.path.dirname(BASE_DIR) # 프로젝트 루트 (/app)
     PDF_DIR: str= os.path.join(ROOT_DIR, "static", "pdfs")
+
+    # -- SentenceTransformer에서 사용할 모델 이름 --
+    EMBEDDING_MODEL_NAME: str= "jhgan/ko-sbert-nli"
     DEBUG: bool = False
 
 
