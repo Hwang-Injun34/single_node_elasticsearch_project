@@ -28,8 +28,8 @@ class PdfTranscriptParserRepository:
             .where(DocumentProcess.status == ProcessStatus.EXTRACTED)
             .limit(limit)
         )
-        result = await self.db.scalars(stmt)
-        return result.all()
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
 
 
     async def save_transcript_parser_result(self, process_id: int, result_segments: DocumentPageSegmentsSchema):

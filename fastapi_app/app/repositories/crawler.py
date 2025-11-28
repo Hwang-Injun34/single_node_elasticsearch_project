@@ -3,12 +3,16 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.models.document import Document
+from app.models.document_processes import DocumentProcess, ProcessStatus
 from app.schema.crawler import DocumentCreate
+
 
 class NationalAssemblyCrawlerRepository:
     def __init__(self, db: AsyncSession):
         self.db = db 
-    
+
+    async def commit(self):
+        await self.db.commit()
 
     # ----------------------------------------
     # 1. 중복 체크 (이미 수집된 ID인가?)
@@ -26,7 +30,7 @@ class NationalAssemblyCrawlerRepository:
     # ----------------------------------------
     # 2. 문서 정보 저장 (INSERT)
     # ----------------------------------------
-    async def save_document(self, doc_data: DocumentCreate) -> int:
+    async def save_document_1(self, doc_data: DocumentCreate) -> int:
         """
         크롤링한 문서 정보를 DB에 저장
         """
@@ -39,6 +43,7 @@ class NationalAssemblyCrawlerRepository:
             file_path  = doc_data["file_path"],
             title  = doc_data["title"]
         )
+
 
         try: 
             self.db.add(document)
@@ -53,3 +58,28 @@ class NationalAssemblyCrawlerRepository:
             await self.db.rollback()
             print(f"[DB Error] 저장 실패: {e}")
             raise e
+        
+    # ----------------------------------------
+    # 3. Document & DocumentProcess 내용 저장
+    # ----------------------------------------
+    async def save_document(self, doc_data: dict) -> Document:
+        """
+        Document 저장 -> DocumentProcess(PENDING) 생성
+        """
+        # 1. Document 저장
+        new_doc = Document(**doc_data)
+        self.db.add(new_doc)
+
+        # Flush를 호출하여 new_doc.id를 확보
+        await self.db.flush()
+
+        # 2. DocumentProcess 생성(초기 상태: PENDING)
+        new_processs = DocumentProcess(
+            document_id=new_doc.id,
+            status=ProcessStatus.PENDING,
+        )
+
+        self.db.add(new_processs)
+
+        await self.db.commit()
+    

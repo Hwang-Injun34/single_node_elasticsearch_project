@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Boolean, ForeignKey, Text, JSON, String
+from sqlalchemy import Column, Boolean, ForeignKey, JSON, String
 from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
 from sqlalchemy.orm import relationship
 
@@ -13,6 +13,8 @@ class DocumentSegment(Base):
     # 원본 문서와의 연결(1:N)
     document_id = Column(BIGINT, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
 
+    process_id = Column(BIGINT, ForeignKey("document_processes.id", ondelete="CASCADE"), nullable=False, index=True)
+
     # 세그먼트 식별 정보
     page_number = Column(BIGINT, nullable=False)
 
@@ -23,12 +25,17 @@ class DocumentSegment(Base):
     original_text = Column(LONGTEXT, nullable=False) 
 
     # Track A 결과
-    keyworkds = Column(JSON, nullable=True)
+    keywords = Column(JSON, nullable=True)
 
 
     # Track B 결과
-    embedding_vector = Column(JSON, nullable=True)
+    embedding_vector = Column(JSON, nullable=True, default=None)
 
 
     # 관계 설정 
-    ducment = relationship("Document", back_populates="segments")
+    document = relationship("Document", back_populates="segments")
+
+    process = relationship(
+        "DocumentProcess",
+        back_populates="segment",
+    )

@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Boolean, ForeignKey, Text, JSON, LargeBinary
-from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
+from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT, LONGBLOB
 from sqlalchemy.orm import relationship
 
 from app.database.connection import Base
@@ -13,7 +13,7 @@ class DocumentContent(Base):
     process_id = Column(BIGINT, ForeignKey("document_processes.id", ondelete="CASCADE"), nullable=False, unique=True)
     
     # 페이지별 텍스트 저장
-    compressed_page_texts = Column(LargeBinary, nullable=True)
+    compressed_page_texts = Column(LONGBLOB, nullable=True)
 
     # 전체 화자별 텍스트 저장
     speaker_segments = Column(JSON, nullable=True)

@@ -25,8 +25,9 @@ class PdfKeywordExtractorRepository:
             .where(DocumentProcess.status == ProcessStatus.PARSED)
             .limit(limit)
         )
-        result = await self.db.scalars(stmt)
-        return result.all()
+        
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
     
     async def save_keyword_result(self, document_id: int, save_dtos: List[DocumentSegmentSaveSchema]):
         """
@@ -41,6 +42,7 @@ class PdfKeywordExtractorRepository:
         segment_to_add = [
             DocumentSegment(
                 document_id=dto.document_id,
+                process_id=dto.process_id,
                 page_number=dto.page_number,
                 speaker_name=dto.speaker_name,
                 speaker_role=dto.speaker_role,

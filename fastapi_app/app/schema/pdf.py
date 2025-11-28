@@ -52,6 +52,7 @@ class SegmentInputSchema(BaseModel):
 
 class DocumentSegmentSaveSchema(BaseModel):
     document_id: int 
+    process_id: int
     page_number: int 
     speaker_name: Optional[str]
     speaker_role: Optional[str]

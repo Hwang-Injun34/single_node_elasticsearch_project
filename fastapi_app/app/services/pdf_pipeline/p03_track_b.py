@@ -63,5 +63,4 @@ class PdfEmbeddingExtractorService:
                 "embedding_vector": vector_list
             })
 
-        print(result_list)
         return result_list

@@ -63,7 +63,7 @@ class PdfKeywordExtractorService:
 
                 # -- [Step 3] 비동기 키워드 추출 실행(CPU Bound 작업) --
                 # 별도 스레드에서 _process_document 실행
-                save_dtos = await asyncio.to_thread(self._process_single_document, document_id, input_data)
+                save_dtos = await asyncio.to_thread(self._process_single_document, document_id, process_id, input_data)
 
                 # -- [Step 4] DB 저장 (세그먼트 테이블 Insert) --
                 # 데이터를 저장할 때 이제는 DocumentSegment에 저장하기 때문에 Documnet 만 동일하고 
@@ -88,7 +88,7 @@ class PdfKeywordExtractorService:
     # -------------------------
     #       [보조 함수]
     # -------------------------
-    def _process_single_document(self, document_id: int, input_data: DocumentPageSegmentsSchema) -> List[DocumentSegmentSaveSchema]:
+    def _process_single_document(self, document_id: int, process_id: int, input_data: DocumentPageSegmentsSchema) -> List[DocumentSegmentSaveSchema]:
         """
         [CPU Bound]
         1. JSON 구조(Page -> Segment)를 순회하며
@@ -108,6 +108,7 @@ class PdfKeywordExtractorService:
                 # 저장용 스키마 생성(Flatten)
                 dto = DocumentSegmentSaveSchema(
                     document_id=document_id,
+                    process_id=process_id,
                     page_number=page.page,
                     speaker_name=seg.speaker_name,
                     speaker_role=seg.speaker_role,

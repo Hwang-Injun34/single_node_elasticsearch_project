@@ -48,7 +48,6 @@ class PdfExtractionService:
 
                 # [Step 2] 텍스트 추출(ThreadPool에서 실행) - TotalPageTextSchema
                 total_page_data: TotalPageTextSchema = await self._extract_text_from_pdf(file_path)
-                print(total_page_data)
 
                 # [Step 3] 데이터 압축 (TotalPageTextSchema 활용)
                 json_str = total_page_data.model_dump_json(exclude_none=True)

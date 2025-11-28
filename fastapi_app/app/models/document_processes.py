@@ -2,7 +2,7 @@ import enum
 
 from sqlalchemy import Column, Boolean, ForeignKey, Enum
 from sqlalchemy.dialects.mysql import BIGINT
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, foreign
 
 from app.database.connection import Base
 
@@ -43,7 +43,6 @@ class DocumentProcess(Base):
 
     segment = relationship(
         "DocumentSegment", 
-        uselist=False, 
         back_populates="process", 
         cascade="all, delete-orphan"
     )

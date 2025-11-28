@@ -10,6 +10,10 @@ from app.api.api import api_router
 
 
 from app.models.document import Document
+from app.models.document_segments import DocumentSegment 
+from app.models.document_processes import DocumentProcess 
+from app.models.document_contents import DocumentContent 
+
 
 
 # ---------------------------

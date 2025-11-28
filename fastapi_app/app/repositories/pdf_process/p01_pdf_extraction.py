@@ -31,8 +31,8 @@ class PdfExtractionRepository:
             .limit(limit)
         )
         
-        result = await self.db.scalars(stmt)
-        return result.all()
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
     
     async def save_extraction_result(self, process_id: int, save_data: DocumentContentSaveSchema):
         """
@@ -43,7 +43,7 @@ class PdfExtractionRepository:
             process_id=process_id, 
             compressed_page_texts = save_data.compressed_page_texts
         )
-        await self.db.add(content)
+        self.db.add(content)
 
 
     async def update_process_status(self, process_id: int, status: ProcessStatus):
