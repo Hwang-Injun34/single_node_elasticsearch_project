@@ -49,7 +49,7 @@ class PdfProcessService:
     # -------------------------------
     async def run_track_b(self, limit: int=3):
         print(f"[3-b단계] 임베딩 생성 시작 (Limit: {limit})")
-        await self.p03_track_b_service.run_embedding_extraction(limit)
+        await self.p03_track_b_service.run_embedding_extraction()
 
     
 

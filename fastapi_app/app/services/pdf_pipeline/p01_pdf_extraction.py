@@ -1,6 +1,6 @@
-import fitz 
+# import fitz 
+import pdfplumber
 import asyncio
-import json 
 import zlib
 import unicodedata
 
@@ -87,17 +87,30 @@ class PdfExtractionService:
 
     def _sync_extract_pdf(self, path: str) -> TotalPageTextSchema:
         """
-        실제 동기 PDF 처리 로직(ThreadPool에서 실행)
+        🔥 [핵심 변경] pdfplumber를 이용한 텍스트 추출
+        - x_tolerance: 글자 사이 간격 허용치 (기본값보다 조금 줄여서 단어 분리 명확화)
         """
         pages_list = []
         
-        with fitz.open(path) as doc:
-            for i, page in enumerate(doc):
-                text = page.get_text("text") or ""
-
-                text = unicodedata.normalize("NFC", text)
-                pages_list.append(
-                    PageTextSchema(page_num=i+1, text=text)
-                )
+        try:
+            with pdfplumber.open(path) as pdf:
+                for i, page in enumerate(pdf.pages):
+                    # extract_text 옵션 설명:
+                    # x_tolerance: 글자 사이 간격이 이 값보다 크면 띄어쓰기로 인식 (기본: 3)
+                    # y_tolerance: 줄 간격 인식 (기본: 3)
+                    # keep_blank_chars: False (불필요한 공백 제거)
+                    text = page.extract_text(x_tolerance=2, y_tolerance=3, keep_blank_chars=False)
+                    print(text)
+                    if not text:
+                        text = ""
+                    
+                    # 유니코드 정규화
+                    text = unicodedata.normalize("NFC", text)
+                    
+                    pages_list.append(PageTextSchema(page_num=i+1, text=text))
+                    
+        except Exception as e:
+            print(f"❌ PDF 열기 실패 ({path}): {e}")
+            raise e
 
         return TotalPageTextSchema(page_list=pages_list)

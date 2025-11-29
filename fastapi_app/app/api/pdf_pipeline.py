@@ -7,6 +7,7 @@ from app.schema.crawler import CrawlerFilter
 
 router = APIRouter()
 
+# 리턴 메시지 모두 수정할 것
 
 @router.post("/run-extraction")
 async def run_extraction(
@@ -42,12 +43,11 @@ async def run_extraction(
 
 @router.post("/run-track-b")
 async def run_extraction(
-    limit: int = Query(3, description="처리할 문서 개수"),
     pdf_service: PdfProcessService = Depends(get_pdf_pipeline_service)
 ):
-    print(f"[API 요청] 임베딩 벡터 생성 시작(Limit: {limit})")
-    await pdf_service.run_track_b(limit)
-    return {"message": f"[3-b단계] 임베딩 생성 작업이 백그라운드에서 시작되었습니다. (Limit: {limit})"}
+    print(f"[API 요청] 임베딩 벡터 생성 시작")
+    await pdf_service.run_track_b()
+    return {"message": f"[3-b단계] 임베딩 생성 작업이 백그라운드에서 시작되었습니"}
 
 
 @router.post("/run-all")

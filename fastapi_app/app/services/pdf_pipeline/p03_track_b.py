@@ -21,27 +21,45 @@ class PdfEmbeddingExtractorService:
     # -------------------------
     #       [메인 함수]
     # -------------------------
-    async def run_embedding_extraction(self, limit: int = 5):
+    async def run_embedding_extraction(self):
         """
         벡터가 없는 세그먼트 조회 -> 임베딩 -> 저장
         """
         # -- [Step 1] 대상 조회
-        target_segments = await self.db_repo.get_segments_without_vector(limit)
+        target_processes = await self.db_repo.get_segments_by_status()
 
-        if not target_segments:
+        if not target_processes:
             print("[Track B] 처리할 세그먼트가 없습니다.")
             return
         
-        print(f"---------- [Track B] {len(target_segments)}개 세그먼트 임베딩 시작 ----------")
+        print(f"---------- [Track B] {len(target_processes)}개 세그먼트 임베딩 시작 ----------")
 
+        total_segments_count = 0
 
-        # -- [Step 2] 비동기 임베딩 실행(CPU Bound) --
-        # to_thread로 CPU 작업 분리
-        processed_data = await asyncio.to_thread(self._process_segments_embedding, target_segments)
+        for process in target_processes:
 
-        # -- [Step 3] DB 업데이트 --
-        await self.db_repo.update_vectors_bulk(processed_data)
-        print(f"총 {len(processed_data)}건 임베딩 및 저장 완료")
+            try: 
+                segments = process.segment
+                if not segments:
+                    print(f"⚠️ [Skip] Process ID {process.id}: 세그먼트 없음")
+                    continue
+                
+                print(f"▶️ [Start] Process ID {process.id} (세그먼트 {len(segments)}개)")
+
+                # -- [Step 2] 비동기 임베딩 실행(CPU Bound) --
+                # to_thread로 CPU 작업 분리
+                processed_data = await asyncio.to_thread(self._process_segments_embedding, segments)
+
+                # -- [Step 3] DB 업데이트 --
+                await self.db_repo.update_vectors_bulk(processed_data)
+                print(f"총 {len(processed_data)}건 임베딩 및 저장 완료")
+
+                total_segments_count += len(segments)
+                print(f"[성공]] Process ID {process.id} 완료")
+            except Exception as e:
+                print(f"[Error] Process ID {process.id} 처리 실패: {e}")
+                # await self.db_repo.update_process_status(process.id, ProcessStatus.FAILED)
+        await self.db_repo.commit()
 
     # -------------------------
     #       [보조 함수]

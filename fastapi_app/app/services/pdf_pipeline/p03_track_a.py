@@ -1,14 +1,17 @@
 import asyncio
 
+from keybert import KeyBERT
 from kiwipiepy import Kiwi
 from collections import Counter
 from typing import List 
+from sentence_transformers import SentenceTransformer
 
 from app.models.document_processes import ProcessStatus
 from app.repositories.pdf_process.p03_track_a import PdfKeywordExtractorRepository
 from app.utils.stopwords import STOP_WORDS
 
 from app.schema.pdf import DocumentPageSegmentsSchema, DocumentSegmentSaveSchema
+from app.core.config import settings
 
 
 # ===============================
@@ -27,6 +30,12 @@ class PdfKeywordExtractorService:
     def __init__(self, db_p03_track_a: PdfKeywordExtractorRepository):
         self.db_repo = db_p03_track_a
         self.kiwi = Kiwi()
+
+        # 임베딩 모델 로드 (Track B와 동일 모델)
+        self.embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME)
+
+        # KeyBERT 초기화
+        self.kw_model = KeyBERT(model=self.embedding_model)
         self.stop_words = STOP_WORDS
 
     # -------------------------
@@ -63,7 +72,12 @@ class PdfKeywordExtractorService:
 
                 # -- [Step 3] 비동기 키워드 추출 실행(CPU Bound 작업) --
                 # 별도 스레드에서 _process_document 실행
-                save_dtos = await asyncio.to_thread(self._process_single_document, document_id, process_id, input_data)
+                save_dtos = await asyncio.to_thread(
+                    self._process_single_document, 
+                    document_id, 
+                    process_id, 
+                    input_data
+                )
 
                 # -- [Step 4] DB 저장 (세그먼트 테이블 Insert) --
                 # 데이터를 저장할 때 이제는 DocumentSegment에 저장하기 때문에 Documnet 만 동일하고 
@@ -100,10 +114,11 @@ class PdfKeywordExtractorService:
         for page in input_data.pages:
             for seg in page.segments:
                 text = seg.text.strip()
-                if not text: continue 
+                # 너무 짧은 문장 스킵
+                if len(text) <= 15: continue 
 
                 # 키워드 추출 로직 
-                keywords = self._extract_keywords(text)
+                keywords = self._extract_keywords_bert(text)
 
                 # 저장용 스키마 생성(Flatten)
                 dto = DocumentSegmentSaveSchema(
@@ -120,37 +135,44 @@ class PdfKeywordExtractorService:
         print(result_list)
         return result_list
     
-    def _extract_keywords(self, text: str, top_n: int = 5) -> List[str]:
+    def _extract_keywords_bert(self, text: str, top_n: int = 5) -> List[str]:
         """
-        순수 키워드 추출 로직
-        - 텍스트 -> 명사 추출 -> 상위 N개 반환
+        KeyBERT를 사용하되, 명사 단위로 후보를 좁혀서 추출 품질 향상
         """
 
-        # 최소 길이 방어 로직
-        # "네", "아니오" 같은 너무 짧은 문장은 분석할 가치가 없음
-        if not text or len(text) < 5: return []
+        try: 
+            # 1. Kiwi로 명사만 추출하여 공백으로 연결(전처리)
+            # 이유: KeyBERT는 띄어쓰기 기준으로 토큰을 나누는데, 한국어는 조사 때문에 바로 넣으면 성능 저하
+            nouns = []
+            tokens = self.kiwi.analyze(text, normalize_coda=True)
+            for token in tokens[0][0]:
+                if token.tag in ['NNG', 'NNP']: # 일반명사, 고유명사
+                    word = token.form 
+                    if len(word) > 1 and word not in self.stop_words: 
+                        nouns.append(word)
+            
+            if not nouns:
+                return []
         
-        # Kiwi 분석
-        # normalize_code = True: "했읍니다." -> "했습니다." 같이 옛날 말이나 오타를 잡음
-        result = self.kiwi.analyze(text, normalize_coda=True)
-        nouns = []
+            # 명사들로만 구성된 텍스트를 만듦
+            candidate_text = " ".join(nouns)
 
-        # 분석 결과 하나씩 뜯기
-        # result[0][0]은 kiwi 라이브러리 특유의 결과 접근 방식
-        for token in result [0][0]:
-            # [필터 1] 품사(POS)가 명사인가?
-            # NNG: 일반 명사 (예: 학교, 의사)
-            # NNP: 고유 명사 (예: 대한민국, 이재명)
-            if token.tag in ['NNG', 'NNP']:
 
-                # [필터 2] 쓸모있는 명사인가?
-                # len(token.form) > 1 : '것', '수', '등' 같은 1글자 의존명사는 보통 검색에 도움 안됨
-                # not in self.stop_words: '위원장', '말씀' 같이 너무 뻔한 단어 제외
-                if len(token.form) > 1 and token.form not in self.stop_words:
-                    nouns.append(token.form)
+            # 2. KeyBERT 실행
+            # keyphrase_ngram_range(1, 1): 1단어짜리 키워드 추출(필요하면(1, 2)로 복합명사 추출 가능)
+            # use_mmr=True: 다양성 있는 키워드 추출(중복 의미 방지)
+            keywords = self.kw_model.extract_keywords(
+                docs=candidate_text, # 원문 대신 명사 나열 텍스트 삽입
+                keyphrase_ngram_range=(1, 1), 
+                stop_words=None, # 이미 위에서 걸러냄
+                top_n=top_n,
+                use_mmr=True,    # Maximal Marginal Relevance (다양성 확보)
+                diversity=0.3    # 0.3 정도가 적당 (높을수록 다양한 단어, 낮을수록 대표성 강한 단어)
+            )
 
-        # 빈도수 세기
-        # Counter가 리스트 안의 단어 개수를 세준다.
-        # most_common(top_n): 가장 많이 나온 순서대로 N개만 
-        return [word for word, _ in Counter(nouns).most_common(top_n)]
-
+            # 결과 포맷: [('키워드', 0.82), ('단어', 0.75)] -> ['키워드', '단어']
+            return [k[0] for k in keywords]
+        except Exception as e:
+            print(f"KeyBERT Error: {e}")
+            return []
+    
