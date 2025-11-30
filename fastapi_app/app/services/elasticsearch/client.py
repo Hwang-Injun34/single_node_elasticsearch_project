@@ -32,5 +32,4 @@ es_sync = Elasticsearch(
     timeout=30,
     max_retries=3,
     retry_on_timeout=True
-
 )

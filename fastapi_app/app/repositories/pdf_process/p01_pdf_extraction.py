@@ -9,7 +9,7 @@ from app.schema.pdf import DocumentContentSaveSchema
 
 
 # ===============================
-# 1단계: PDF -> 텍스트 추출(PyMuPDF 기반)
+# 1단계: PDF -> 텍스트 추출
 # ===============================
 
 class PdfExtractionRepository:
@@ -19,7 +19,7 @@ class PdfExtractionRepository:
     async def commit(self):
         await self.db.commit()
 
-    async def get_unprocessed_pdfs(self, limit: int):
+    async def get_unprocessed_pdfs_by_status(self, limit: int):
         """
         아직 처리되지 않은(is_processed=False) 항목을 조회
         Document 정보를 함께 로딩(joinedload)하여 N+1 문제를 방지

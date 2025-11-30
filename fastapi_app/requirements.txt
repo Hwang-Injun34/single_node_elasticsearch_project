@@ -21,7 +21,7 @@ tzlocal==5.3.1
 beautifulsoup4==4.12.3
 httpx==0.28.1 
 aiohttp==3.9.5  
-elasticsearch==7.17.9 
+elasticsearch==8.11.0 
 PyMuPDF==1.24.10  
 pytest-asyncio==0.23.7
 pytest-mock==3.14.0

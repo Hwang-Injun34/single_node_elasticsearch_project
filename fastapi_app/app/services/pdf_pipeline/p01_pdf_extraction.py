@@ -9,7 +9,7 @@ from app.schema.pdf import DocumentContentSaveSchema, TotalPageTextSchema, PageT
 from app.models.document_processes import ProcessStatus
 
 # ===============================
-# 1단계: PDF -> 텍스트 추출(PyMuPDF 기반)
+# 1단계: PDF -> 텍스트 추출
 # ===============================
 
 class PdfExtractionService:
@@ -25,7 +25,7 @@ class PdfExtractionService:
         """
 
         # [Step 1] Repository를 통해 대상 조회
-        targets = await self.db_repo.get_unprocessed_pdfs(limit)
+        targets = await self.db_repo.get_unprocessed_pdfs_by_status(limit)
 
         if not targets:
             print("처리할 PDF가 없음")
@@ -87,7 +87,7 @@ class PdfExtractionService:
 
     def _sync_extract_pdf(self, path: str) -> TotalPageTextSchema:
         """
-        🔥 [핵심 변경] pdfplumber를 이용한 텍스트 추출
+        [핵심 변경] pdfplumber를 이용한 텍스트 추출
         - x_tolerance: 글자 사이 간격 허용치 (기본값보다 조금 줄여서 단어 분리 명확화)
         """
         pages_list = []

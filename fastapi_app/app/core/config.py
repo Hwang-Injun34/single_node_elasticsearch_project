@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     # -- Elasticsearch --
     # Elasticsearch 설정
-    ELASTICSEARCH_HOST: str = "http://elasticsearch:9200"
+    ELASTICSEARCH_URL: str = "http://elasticsearch:9200"
     ELASTIC_USERNAME: str = ""
     ELASTIC_PASSWORD: str = ""
 

@@ -17,7 +17,7 @@ class PdfTranscriptParserRepository:
     async def commit(self):
         await self.db.commit()
 
-    async def get_unprocessed_pdfs(self, limit: int):
+    async def get_text_by_status(self, limit: int):
         """
         아직 처리되지 않은(is_processed=False) 항목을 조회
         Document 정보를 함께 로딩(joinedload)하여 N+1 문제를 방지

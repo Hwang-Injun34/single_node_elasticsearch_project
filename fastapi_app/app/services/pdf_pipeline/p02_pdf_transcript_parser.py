@@ -31,7 +31,7 @@ class PdfTranscriptParserService:
     async def segmentize_pages(self, limit: int = 1):
         
         # -- [Step 1] 대상 조회 (Extraction 완료된 건들) --
-        targets = await self.db_repo.get_unprocessed_pdfs(limit)
+        targets = await self.db_repo.get_text_by_status(limit)
 
         if not targets:
             print("처리할 PDF가 없음")

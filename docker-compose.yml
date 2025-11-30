@@ -13,8 +13,11 @@ services:
       - .env
     restart: always
     environment:
+      # DB 연결
       DATABASE_URL: "mysql+aiomysql://ngms:ms123@shared_mysql_db:3306/PolitiSearch"
-      ELASTICSEARCH_HOST: "http://elasticsearch:9200"
+      
+      # ES 연결(http://컨테이너명:9200)
+      ELASTICSEARCH_URL: "http://elasticsearch:9200"
       ELASTIC_USERNAME: "${ELASTIC_USERNAME}"
       ELASTIC_PASSWORD: "${ELASTIC_PASSWORD}"
     depends_on:
@@ -29,7 +32,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      VITE_API_BASE_URL: "http://fastapi:8000"
+      VITE_API_BASE_URL: "http://fastapi:8000" # localhost
     depends_on:
       - fastapi
     networks:
@@ -44,23 +47,31 @@ services:
     restart: always
     env_file: .env
     environment:
+      - node.name=single-node
+      - cluster.name=docker-cluster
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms2g -Xmx2g
+
+      # 보안 설정(ID/PW 사용, HTTPS 비활성화)
       - xpack.security.enabled=true
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
       - xpack.security.transport.ssl.enabled=false
       - xpack.security.http.ssl.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
     ports:
       - "9200:9200"
       - "9300:9300"
     volumes:
-      - ./esdata:/usr/share/elasticsearch/data
+      - esdata:/usr/share/elasticsearch/data
     networks:
       - default
 
 
   kibana:
-    image: docker.elastic.co/kibana/kibana:7.17.10
+    image: docker.elastic.co/kibana/kibana:8.11.0
     container_name: kibana
     ports:
       - "5601:5601"
@@ -68,8 +79,9 @@ services:
     env_file: .env
     environment:
       ELASTICSEARCH_HOSTS: 'http://elasticsearch:9200'
-      ELASTICSEARCH_USERNAME: elastic
-      ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD}
+      ELASTICSEARCH_USERNAME: ${KIBANA_USERNAME}
+      ELASTICSEARCH_PASSWORD: ${KIBANA_PASSWORD}
+      # 암호화 키 설정(임의의 문자열 32자 이상)
       XPACK_SECURITY_ENCRYPTIONKEY: ${XPACK_SECURITY_ENCRYPTIONKEY}
       XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY}
       XPACK_REPORTING_ENCRYPTIONKEY: ${XPACK_REPORTING_ENCRYPTIONKEY}
@@ -82,3 +94,6 @@ networks:
   common_infra_network:
     external: true
     name: common_infra_network
+
+volumes:
+  esdata:
