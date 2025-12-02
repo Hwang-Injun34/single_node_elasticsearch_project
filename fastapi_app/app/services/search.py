@@ -25,7 +25,7 @@ class SearchService:
         es_query = build_hybrid_query(keyword, query_vector, committee, limit)
 
         # 3. ES 검색 요청
-        response = await es_async(index=INDEX_NAME, body=es_query)
+        response = await es_async.search(index=INDEX_NAME, body=es_query)
 
         # 4. 결과 가공
         hits = response["hits"]["hits"]

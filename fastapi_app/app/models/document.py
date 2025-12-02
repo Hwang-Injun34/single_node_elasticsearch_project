@@ -34,5 +34,6 @@ class Document(Base):
     segments = relationship(
         "DocumentSegment",
         back_populates="document",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        order_by="DocumentSegment.page_number"
     )

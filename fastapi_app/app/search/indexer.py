@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 from elasticsearch import helpers
 
 from app.dependencies.db import get_db
-from app.models.document_segments import DocumentSegment
+from app.models import Document, DocumentSegment
 
 from app.search.connection import es_async, es_sync
 from app.search.index_manager import INDEX_NAME
@@ -90,7 +90,3 @@ class MinutesIndexer:
 
             print(f"[Indexer] 전체 완료. 총 {total_indexed}건 색인됨.")
 
-# 테스트용
-if __name__ == "__main__":
-    indexer = MinutesIndexer()
-    asyncio.run(indexer.index_all_documents())

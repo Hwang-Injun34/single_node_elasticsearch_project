@@ -1,3 +1,4 @@
+import asyncio 
 from elasticsearch import Elasticsearch, AsyncElasticsearch 
 
 from app.core.config import settings 
@@ -42,3 +43,9 @@ async def check_es_connection():
             print("[ES] 연결 실패 (Ping 응답 없음)")
     except Exception as e:
         print(f"[ES] 연결 오류: {e}")
+    finally: 
+        await es_async.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(check_es_connection())

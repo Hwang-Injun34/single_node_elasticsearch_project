@@ -24,3 +24,17 @@ pytest test_segment_keyword -q
 
 RUN pip install torch --index-url https://download.pytorch.org/whl/cpu
 (CPU 전용)
+
+
+from .segment import SegmentBase, SegmentDetail 
+from .crawler import DocumentCreate, DocumentRead, CrawlerFilter 
+from .document import DocumentMeta, DocumentDetail 
+from .pdf import PageTextSchema, TotalPageTextSchema, DocumentContentSaveSchema, SegmentSchema, PageSegmentsSchema, DocumentPageSegmentsSchema, SegmentInputSchema, DocumentSegmentSaveSchema
+
+
+__all__ = [
+    "SegmentBase", "SegmentDetail",
+    "DocumentCreate", "DocumentRead", "CrawlerFilter",
+    "DocumentMeta", "DocumentDetail",
+    "PageTextSchema", "TotalPageTextSchema", "DocumentContentSaveSchema", "SegmentSchema", "PageSegmentsSchema", "DocumentPageSegmentsSchema", "SegmentInputSchema", "DocumentSegmentSaveSchema"
+    ]
