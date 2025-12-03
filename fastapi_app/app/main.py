@@ -4,6 +4,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
+from kiwipiepy import Kiwi 
+from keybert import KeyBERT
+from sentence_transformers import SentenceTransformer
+from app.core.config import settings 
+from app.core.state import state
+
 # 내부 모듈 예시 (프로젝트별로 필요에 따라 추가)
 from app.database.connection import engine, Base
 from app.api.api import api_router
@@ -13,7 +19,6 @@ from app.models.document import Document
 from app.models.document_segments import DocumentSegment 
 from app.models.document_processes import DocumentProcess 
 from app.models.document_contents import DocumentContent 
-
 
 
 # ---------------------------
@@ -35,7 +40,29 @@ async def app_lifespan(app: FastAPI):
     # 서버 시작 시 테이블 생성
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    yield
+    
+    # [Step 1] 임베딩 모델 로딩
+    print("[Application Startup] 임베딩 모델 로딩 시작...")
+    try:
+        # 1. 임베딩 모델
+        state["embedding_model"]  = SentenceTransformer(settings.EMBEDDING_MODEL_NAME, device="cpu")
+
+        # 2. Kiwi 형태소 분석기
+        state["kiwi_instance"] = Kiwi()
+
+        # 3. KeyBERT 모델(임베딩 모델을 사용하여 초기화)
+        state["keybert_model"] = KeyBERT(model=state["embedding_model"])
+
+        print("[Application Startup] 모든 모델 및 도구 로딩 완료")
+    except Exception as e:
+        print(f"CRITICAL ERROR: Failed to load embedding model: {e}")
+        raise RuntimeError("Embedding model initialization failed.") from e
+
+    yield # 서버 실행
+
+    # [Step 2] 서버 종료 시 리소스 정리
+    state.clear()
+    print("[Application Shutdown] 리소스 정리 완료")
 
 # ---------------------------
 #  앱 생성 함수

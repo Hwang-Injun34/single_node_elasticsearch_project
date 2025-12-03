@@ -8,9 +8,8 @@ from app.search.index_manager import INDEX_NAME
 from app.search.query_builder import build_hybrid_query 
 
 class SearchService:
-    def __init__(self):
-        print("[Search] 임베딩 모델 로딩...")
-        self.model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME, device="cpu")
+    def __init__(self, model_instance: SentenceTransformer):
+        self.model = model_instance
 
     async def search_minutes(self, keyword: str, committee: str = None, limit: int = 20):
         """

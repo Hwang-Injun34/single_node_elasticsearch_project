@@ -1,7 +1,15 @@
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+from sentence_transformers import SentenceTransformer
+from kiwipiepy import Kiwi 
+from keybert import KeyBERT
 
 from app.dependencies.db import get_db
+from app.dependencies.model import (
+    get_embedding_model, 
+    get_keybert_model, 
+    get_kiwi_instance
+)
 
 from app.services.pdf_pipeline.pdf_process import PdfProcessService
 from app.services.pdf_pipeline.p01_pdf_extraction import PdfExtractionService
@@ -13,6 +21,7 @@ from app.repositories.pdf_process.p01_pdf_extraction import PdfExtractionReposit
 from app.repositories.pdf_process.p02_pdf_transcript_parser import PdfTranscriptParserRepository
 from app.services.pdf_pipeline.p03_track_a import PdfKeywordExtractorRepository 
 from app.services.pdf_pipeline.p03_track_b import PdfEmbeddingExtractorRepository
+
 
 # ===============================
 # pdf 파이프라인 단계별 의존성 주입
@@ -28,13 +37,29 @@ async def get_pdf_transcript_parser_service(db: AsyncSession = Depends(get_db)) 
     return PdfTranscriptParserService(PdfTranscriptParserRepository(db))
 
 # -- [3단계_Track A: 키워드 추출] --
-async def get_pdf_track_a_service(db: AsyncSession = Depends(get_db)) -> PdfKeywordExtractorService:
-    return PdfKeywordExtractorService(PdfKeywordExtractorRepository(db))
+async def get_pdf_track_a_service(
+        db: AsyncSession = Depends(get_db),
+        kiwi_instance: Kiwi = Depends(get_kiwi_instance),
+        model_instance: SentenceTransformer = Depends(get_embedding_model),
+        keybert_model: KeyBERT = Depends(get_keybert_model)
+) -> PdfKeywordExtractorService:
+    return PdfKeywordExtractorService(
+        db_p03_track_a=PdfKeywordExtractorRepository(db),
+        kiwi_instance=kiwi_instance, 
+        model_instance=model_instance,
+        keybert_model=keybert_model
+        )
 
 
 # -- [3단계_Track B: 임베딩 벡터 생성] --
-async def get_pdf_track_b_service(db: AsyncSession = Depends(get_db)) -> PdfEmbeddingExtractorService:
-    return PdfEmbeddingExtractorService(PdfEmbeddingExtractorRepository(db))
+async def get_pdf_track_b_service(
+        db: AsyncSession = Depends(get_db),
+        model_instance: SentenceTransformer = Depends(get_embedding_model)
+) -> PdfEmbeddingExtractorService:
+    return PdfEmbeddingExtractorService(
+        PdfEmbeddingExtractorRepository(db),
+        model_instance=model_instance
+        )
 
 
 # -- [통합: PDF Data Pipeline Service Factory] --

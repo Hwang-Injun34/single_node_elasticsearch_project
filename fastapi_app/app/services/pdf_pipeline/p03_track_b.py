@@ -11,12 +11,12 @@ from app.repositories.pdf_process.p03_track_b import PdfEmbeddingExtractorReposi
 # 3단계_TrackB: 임베딩 벡터 생성
 # ===============================
 class PdfEmbeddingExtractorService:
-    def __init__(self, db_p03_track_b: PdfEmbeddingExtractorRepository):
+    def __init__(self, db_p03_track_b: PdfEmbeddingExtractorRepository, model_instance: SentenceTransformer):
         """
         model_name: 사용할 SentenceTransformer 모델 이름
         """
         self.db_repo = db_p03_track_b
-        self.model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME, device="cpu")
+        self.model = model_instance
 
     # -------------------------
     #       [메인 함수]

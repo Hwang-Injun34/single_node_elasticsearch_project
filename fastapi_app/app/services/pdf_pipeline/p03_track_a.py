@@ -27,17 +27,17 @@ from app.core.config import settings
 
 
 class PdfKeywordExtractorService:
-    def __init__(self, db_p03_track_a: PdfKeywordExtractorRepository):
+    def __init__(self, 
+                db_p03_track_a: PdfKeywordExtractorRepository,
+                kiwi_instance: Kiwi, 
+                embedding_model: SentenceTransformer,
+                keybert_model: KeyBERT
+        ):
         self.db_repo = db_p03_track_a
-        self.kiwi = Kiwi()
-
-        # 임베딩 모델 로드 (Track B와 동일 모델)
-        self.embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME)
-
-        # KeyBERT 초기화
-        self.kw_model = KeyBERT(model=self.embedding_model)
+        self.kiwi = kiwi_instance
+        self.embedding_model = embedding_model 
+        self.kw_model = keybert_model 
         self.stop_words = STOP_WORDS
-
     # -------------------------
     #       [메인 함수]
     # -------------------------
