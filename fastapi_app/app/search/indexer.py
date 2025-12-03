@@ -45,7 +45,8 @@ class MinutesIndexer:
                 actions = []
                 for seg in segments:
                     doc = seg.document # 부모 문서
-
+                    
+                    # className 추가하기 
                     source = {
                         # --- 메타 데이터 ---
                         "doc_id": str(doc.id),

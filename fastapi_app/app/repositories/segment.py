@@ -11,7 +11,7 @@ class SegmentRepository:
     def __init__(self, db: AsyncSession):
         self.db = db 
 
-    async def get_by_id_with_document(self, segment_id: str) -> Optional[DocumentSegment]:
+    async def get_by_id_with_document(self, segment_id: int) -> Optional[DocumentSegment]:
         """
         Segment ID를 기반으로 Segment와 부모 Document를 Eager Loading하여 ORM 객체를 반환
         """

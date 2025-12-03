@@ -1,7 +1,7 @@
 import os
-from typing import Dict 
+from typing import Dict, ClassVar
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
+from pathlib import Path 
 
 class Settings(BaseSettings):
     
@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # app 폴더 상위
     ROOT_DIR: str=  os.path.dirname(BASE_DIR) # 프로젝트 루트 (/app)
     PDF_DIR: str= os.path.join(ROOT_DIR, "static", "pdfs")
+
+
+    # -- Docker 컨테이너 내부 파일 시스템 기준 경로 --
+    CONTAINER_ROOT_PATH: ClassVar[Path] = Path("/app/static/pdfs")
 
     # -- SentenceTransformer에서 사용할 모델 이름 --
     EMBEDDING_MODEL_NAME: str= "jhgan/ko-sbert-nli"

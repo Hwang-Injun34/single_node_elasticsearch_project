@@ -8,7 +8,7 @@ router = APIRouter()
 
 @router.get("/{segment_id}", response_model=SegmentDetail)
 async def get_segment_detail(
-    segment_id: int = Path(..., description="조회할 세그먼트의 고유 ID"),
+    segment_id: str = Path(..., description="조회할 세그먼트의 고유 ID"),
     segment_service: SegmentService = Depends(get_segment_service)
 ): 
     segment_data = await segment_service.get_segment_detail(segment_id)

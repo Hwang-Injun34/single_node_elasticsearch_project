@@ -1,10 +1,24 @@
 services:
+  nginx:
+    image: nginx:1.24.0 
+    container_name: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./frontend_app:/usr/share/nginx/html:ro
+    depends_on:
+      - frontend
+      - fastapi
+    networks:
+      - default
 
   fastapi:
     container_name: fastapi
     build: 
       context: ./fastapi_app
       dockerfile: Dockerfile
+    # 운영환경에서는 막아야하지만 /docs를 사용하기위해 포트를 열어둠
     ports:
       - "8000:8000"
     volumes:
@@ -29,10 +43,12 @@ services:
 
   frontend:
     build: ./frontend_app
-    ports:
-      - "3000:3000"
+    container_name: frontend
+    # 포트 노출 제거: 외부에서 직접 접근하는 것을 막음 
+    # ports:
+    #   - "3000:3000"
     environment:
-      VITE_API_BASE_URL: "http://fastapi:8000" # localhost
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost" # localhost
     depends_on:
       - fastapi
     networks:

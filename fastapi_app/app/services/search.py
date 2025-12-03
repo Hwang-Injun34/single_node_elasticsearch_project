@@ -39,11 +39,13 @@ class SearchService:
             results.append({
                 "score": score,
                 "segment_id": source["segment_id"],
-                "content": source["content_text"],
+                "doc_id": source["doc_id"],
+                "title": source["title"],
+                "content_text": source["content_text"],
                 "highlight": highlight, # 하이라이트된 텍스트
                 "speaker": f"{source['speaker_role']} {source['speaker_name']}",
-                "committee": source["committee_name"],
-                "date": source["conf_date"],
+                "committee_name": source["committee_name"],
+                "conf_date": source["conf_date"],
                 "keywords": source["keywords"]
             })
 
