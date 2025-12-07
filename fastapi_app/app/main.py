@@ -45,7 +45,7 @@ async def app_lifespan(app: FastAPI):
     print("[Application Startup] 임베딩 모델 로딩 시작...")
     try:
         # 1. 임베딩 모델
-        state["embedding_model"]  = SentenceTransformer(settings.EMBEDDING_MODEL_NAME, device="cpu")
+        state["embedding_model"] = SentenceTransformer("/app/app/ML/ko-sbert", device="cpu")
 
         # 2. Kiwi 형태소 분석기
         state["kiwi_instance"] = Kiwi()

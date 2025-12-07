@@ -46,7 +46,7 @@ async def get_pdf_track_a_service(
     return PdfKeywordExtractorService(
         db_p03_track_a=PdfKeywordExtractorRepository(db),
         kiwi_instance=kiwi_instance, 
-        model_instance=model_instance,
+        embedding_model=model_instance,
         keybert_model=keybert_model
         )
 
