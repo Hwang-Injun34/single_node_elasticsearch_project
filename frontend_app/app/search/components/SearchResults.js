@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link'; 
 
 export default function SearchResults({ data }) {
-  if (!data || data.total === 0) return null;
+  if (!data || data.total_hits === 0) return null;
 
   return (
     <div className="space-y-6">

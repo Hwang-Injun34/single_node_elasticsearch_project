@@ -16,6 +16,7 @@ class SearchResultItem(BaseModel):
 
 
 class SearchResponse(BaseModel):
-    total: int 
-    took: float 
+    total_hits: int          # 서비스에서 "total_hits"로 줘야 함
+    execution_time: float    # 서비스에서 "execution_time"으로 줘야 함
+    es_took: int             # 서비스에서 "es_took"으로 줘야 함
     results: List[SearchResultItem]

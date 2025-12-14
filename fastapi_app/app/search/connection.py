@@ -48,4 +48,4 @@ async def check_es_connection():
 
 
 if __name__ == "__main__":
-    asyncio.run(check_es_connection())
+    asyncio.run(check_es_connection())    

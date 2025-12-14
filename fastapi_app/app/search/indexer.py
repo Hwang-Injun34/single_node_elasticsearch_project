@@ -90,4 +90,5 @@ class MinutesIndexer:
                 offset += batch_size 
 
             print(f"[Indexer] 전체 완료. 총 {total_indexed}건 색인됨.")
+            return total_indexed
 

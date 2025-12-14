@@ -56,13 +56,14 @@ export default function SearchPage() {
       </div>
 
       {/* -------------------- 2. 결과 표시 영역 -------------------- */}
-      {results && results.total > 0 && (
+      {results && results.total_hits > 0 && (
           // 결과가 있을 때만 결과 영역을 표시
           <div className="w-full max-w-2xl mx-auto px-4 pb-12">
             
             {/* 통계 정보 */}
             <p className="text-sm text-gray-500 mb-4 border-b pb-2">
-              총 {results.total}건의 결과 ({results.took.toFixed(2)}초)
+              총 {results.total_hits}건의 결과 
+              ({results.execution_time.toFixed(2)}초 / ES {results.es_took}ms)
             </p>
             
             {/* 결과 리스트 컴포넌트 */}
@@ -74,7 +75,7 @@ export default function SearchPage() {
       <div className="w-full max-w-2xl mx-auto px-4 mt-4 text-center">
           {loading && <p className="text-blue-500">검색 중입니다. 잠시만 기다려 주세요...</p>}
           {error && <p className="text-red-500 font-medium">❌ 오류 발생: {error}</p>}
-          {results && results.total === 0 && !loading && !error && (
+          {results && results.total_hits === 0 && !loading && !error && (
             <p className="text-gray-600">검색 결과가 없습니다. 다른 키워드를 시도해보세요.</p>
           )}
       </div>

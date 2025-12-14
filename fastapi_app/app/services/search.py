@@ -17,7 +17,7 @@ class SearchService:
         """
         start_time = time.time()
 
-        # 1. 검색어 벡터화 (Query Embedding)
+        # 1. 검색어 벡터화 (여기가 시간이 꽤 걸릴 수 있음!)
         query_vector = self.model.encode(keyword).tolist()
 
         # 2. ES 쿼리 빌드 
@@ -25,6 +25,9 @@ class SearchService:
 
         # 3. ES 검색 요청
         response = await es_async.search(index=INDEX_NAME, body=es_query)
+        
+        # ✅ [추가] ES 내부 연산 시간 (단위: ms)
+        es_took_ms = response["took"]
 
         # 4. 결과 가공
         hits = response["hits"]["hits"]
@@ -33,7 +36,9 @@ class SearchService:
         for hit in hits:
             source = hit["_source"]
             score = hit["_score"]
-            highlight = hit.get("highlight", {}).get("content_text", [source["content_text"][:200]])[0]
+            # highlight 처리 안전하게 (없을 경우 대비)
+            highlight_field = hit.get("highlight", {}).get("content_text", [])
+            highlight_text = highlight_field[0] if highlight_field else source["content_text"][:200]
 
             results.append({
                 "score": score,
@@ -41,16 +46,22 @@ class SearchService:
                 "doc_id": source["doc_id"],
                 "title": source["title"],
                 "content_text": source["content_text"],
-                "highlight": highlight, # 하이라이트된 텍스트
+                "highlight": highlight_text,
                 "speaker": f"{source['speaker_role']} {source['speaker_name']}",
                 "committee_name": source["committee_name"],
                 "conf_date": source["conf_date"],
                 "keywords": source["keywords"]
             })
 
-        duration = time.time() - start_time
+        # Python 총 소요 시간 (초 단위)
+        total_duration_sec = time.time() - start_time
+        
+        # ✅ [로그 출력] 이렇게 찍어두면 디버깅할 때 범인 색출 가능
+        print(f"📊 [Perf] Total: {total_duration_sec:.4f}s | ES Took: {es_took_ms}ms")
+
         return {
-            "total": response["hits"]["total"]["value"],
-            "took": duration,
+            "total_hits": response["hits"]["total"]["value"],  # "total" -> "total_hits"
+            "execution_time": total_duration_sec,
+            "es_took": es_took_ms,  # "took" -> "es_took"
             "results": results
         }
