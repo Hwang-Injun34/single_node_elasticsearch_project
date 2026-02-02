@@ -14,18 +14,41 @@ from app.schema.pdf import DocumentPageSegmentsSchema, DocumentSegmentSaveSchema
 from app.core.config import settings
 
 
-# ===============================
-# 3단계_TrackA: 키워드 추출
-# ===============================
-# 비동기로
-# 1. 대상 조회
-# 2. 구조 스키마를 통해 그형태를 가지고 
-# 3. 하나의 page_local_id를 뽑아냄
-# 4. 키워드 추출
-# 5. 데이터 저장 
-# 비동기로 추출되면 좋겠음
+# ============================================================
+# Track A - PDF 발언 세그먼트 기반 키워드 추출 서비스
+# ------------------------------------------------------------
+# [제목]
+# PdfKeywordExtractorService
+#
+# [목적]
+# 2단계에서 생성된 발언 세그먼트 데이터를 기반으로
+# 각 발언 단위별 핵심 키워드를 자동 추출하여
+# 검색/요약/분석에 활용 가능한 구조화 데이터를 생성한다.
+#
+# [핵심 동작]
+# - PARSED 상태의 문서 세그먼트 데이터 조회
+# - CPU-bound 키워드 추출 작업을 asyncio.to_thread로 비동기 처리
+# - Kiwi 형태소 분석 기반 명사 후보 추출 후 KeyBERT 적용
+# - 세그먼트 단위 키워드 결과를 DB에 저장하고 상태 갱신
+# ============================================================
 
 
+
+# ============================================================
+# PdfKeywordExtractorService
+# ------------------------------------------------------------
+# [제목]
+# PDF 발언 세그먼트 기반 키워드 추출 서비스 클래스
+#
+# [목적]
+# DocumentPageSegmentsSchema 구조의 발언 데이터를 입력받아
+# 각 발언 단위별 대표 키워드를 추출하고 DB 저장용 DTO로 변환한다.
+#
+# [핵심 동작]
+# - Kiwi + KeyBERT 기반 키워드 추출 파이프라인 제공
+# - asyncio.to_thread를 통한 CPU-bound 병렬 처리 지원
+# - 추출 결과를 DocumentSegmentSaveSchema 구조로 변환
+# ============================================================
 class PdfKeywordExtractorService:
     def __init__(self, 
                 db_p03_track_a: PdfKeywordExtractorRepository,
@@ -38,9 +61,22 @@ class PdfKeywordExtractorService:
         self.embedding_model = embedding_model 
         self.kw_model = keybert_model 
         self.stop_words = STOP_WORDS
-    # -------------------------
-    #       [메인 함수]
-    # -------------------------
+
+
+    # ------------------------------------------------------------
+    # [메인 함수] 발언 세그먼트 기반 키워드 추출 파이프라인
+    # ------------------------------------------------------------
+    # [목적]
+    # PARSED 상태의 문서 세그먼트 데이터를 조회하여
+    # 각 발언 단위별 키워드를 비동기로 추출하고 DB에 저장한다.
+    #
+    # [핵심 동작]
+    # 1. 키워드 추출 대상 프로세스 조회
+    # 2. JSON → Pydantic 스키마 변환
+    # 3. asyncio.to_thread로 CPU-bound 키워드 추출 실행
+    # 4. 결과를 세그먼트 테이블에 저장
+    # 5. 프로세스 상태 KEYWORD로 갱신 및 커밋
+    # ------------------------------------------------------------
     async def run_keyword_extraction(self, limit: int=3):
         """
         DB에서 대상 조회 -> 비동기 키워드 추출 -> DB 업데이트
@@ -99,9 +135,18 @@ class PdfKeywordExtractorService:
             await self.db_repo.commit()
             print(f"총 {processed_count}건 처리 완료.")
 
-    # -------------------------
-    #       [보조 함수]
-    # -------------------------
+    # ------------------------------------------------------------
+    # [보조 함수] 단일 문서 세그먼트 키워드 추출 처리기
+    # ------------------------------------------------------------
+    # [목적]
+    # 하나의 문서(Page → Segment 구조)를 순회하며
+    # 각 발언 단위별 키워드를 추출하고 저장용 DTO 리스트를 생성한다.
+    #
+    # [핵심 동작]
+    # - 모든 페이지/세그먼트 순회
+    # - 길이 기준 필터링 후 키워드 추출 실행
+    # - DocumentSegmentSaveSchema 형태로 평탄화(flatten) 변환
+    # ------------------------------------------------------------
     def _process_single_document(self, document_id: int, process_id: int, input_data: DocumentPageSegmentsSchema) -> List[DocumentSegmentSaveSchema]:
         """
         [CPU Bound]
@@ -135,6 +180,20 @@ class PdfKeywordExtractorService:
         print(result_list)
         return result_list
     
+
+    # ------------------------------------------------------------
+    # [보조 함수] KeyBERT + Kiwi 기반 키워드 추출 로직
+    # ------------------------------------------------------------
+    # [목적]
+    # 한국어 문장에 대해 KeyBERT 성능을 개선하기 위해
+    # Kiwi 형태소 분석으로 명사 후보만 추출한 뒤 키워드를 생성한다.
+    #
+    # [핵심 동작]
+    # - Kiwi로 일반명사/고유명사(NNG, NNP)만 필터링
+    # - 불용어 제거 후 명사 나열 텍스트 생성
+    # - KeyBERT(MMR 옵션)로 상위 키워드 추출
+    # - ['키워드1', '키워드2', ...] 형태로 반환
+    # ------------------------------------------------------------
     def _extract_keywords_bert(self, text: str, top_n: int = 5) -> List[str]:
         """
         KeyBERT를 사용하되, 명사 단위로 후보를 좁혀서 추출 품질 향상

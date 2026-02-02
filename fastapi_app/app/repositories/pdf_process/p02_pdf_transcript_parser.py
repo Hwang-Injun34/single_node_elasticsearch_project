@@ -15,12 +15,18 @@ class PdfTranscriptParserRepository:
         self.db = db_p02
 
     async def commit(self):
+        """ 
+        제목: 트랜잭션 커밋
+        목적: 현재 세션 변경 사항 DB 반영
+        핵심동작: commit() 호출
+        """
         await self.db.commit()
 
     async def get_text_by_status(self, limit: int):
         """
-        아직 처리되지 않은(is_processed=False) 항목을 조회
-        Document 정보를 함께 로딩(joinedload)하여 N+1 문제를 방지
+        제목: 파싱 대상 텍스트 조회
+        목적: 추출 완료(EXTRACTED) 상태 문서 조회
+        핵심동작: DocumentProcess + Content join 조회
         """
         stmt = (
             select(DocumentProcess)
@@ -34,7 +40,9 @@ class PdfTranscriptParserRepository:
 
     async def save_transcript_parser_result(self, process_id: int, result_segments: DocumentPageSegmentsSchema):
         """
-        이미 존재하는 DocumentContent row의 document_segment_json 컬럼을 업데이트
+        제목: 세그먼트 파싱 결과 저장
+        목적: 기존 DocumentContent에 화자/문단 세그먼트 결과 업데이트
+        핵심동작: speaker_segments 컬러 UPDATE
         """
         json_data = result_segments.model_dump()
 
@@ -49,7 +57,9 @@ class PdfTranscriptParserRepository:
 
     async def update_process_status(self, process_id: int, status: ProcessStatus):
         """
-        DocumentProcess의 상태 업데이트
+        제목: 처리 상태 업데이트 
+        목적: DocumentProcess 상태 변경 관리
+        핵심동작: status 컬럼 UPDATE
         """
         stmt = (
             update(DocumentProcess)

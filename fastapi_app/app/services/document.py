@@ -5,6 +5,21 @@ from app.core.config import settings
 from app.repositories.document import DocumentRepository
 from app.models.document import Document
 
+
+# ======================================================
+# [제목] Elasticsearch 클라이언트 연결 관리
+# ------------------------------------------------------
+# [목적]
+#  - FastAPI 애플리케이션과 Elasticsearch 간의 연결을 중앙에서 관리한다.
+#  - 비동기/동기 클라이언트를 분리하여 런타임 API 요청과
+#    초기화 스크립트·배치 작업에서 각각 적절히 사용하도록 한다.
+#
+# [핵심 동작]
+#  - AsyncElasticsearch: API 요청 처리용 비동기 클라이언트 생성
+#  - Elasticsearch: 인덱스 초기화, 마이그레이션 등 동기 작업용 클라이언트 생성
+#  - check_es_connection(): 서버 시작 시 연결 상태를 ping으로 검증
+# ======================================================
+
 class DocumentService: 
     def __init__(self, repo: DocumentRepository):
         self.db_repo = repo 

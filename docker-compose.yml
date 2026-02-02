@@ -18,46 +18,54 @@ services:
     build: 
       context: ./fastapi_app
       dockerfile: Dockerfile
-    # 운영환경에서는 막아야하지만 /docs를 사용하기위해 포트를 열어둠
     ports:
-      - "8000:8000"
+      - "8000:8000"   # 개발용 (/docs)
     volumes:
       - ./fastapi_app:/app
     env_file:
       - .env
     restart: always
     environment:
-      # DB 연결
-      DATABASE_URL: "mysql+aiomysql://ngms:ms123@shared_mysql_db:3306/PolitiSearch"
-      
-      # ES 연결(http://컨테이너명:9200)
+      DATABASE_URL: "mysql+aiomysql://ngms:ms123@mysql_db:3306/PolitiSearch"
       ELASTICSEARCH_URL: "http://elasticsearch:9200"
       ELASTIC_USERNAME: "${ELASTIC_USERNAME}"
       ELASTIC_PASSWORD: "${ELASTIC_PASSWORD}"
     depends_on:
+      - mysql_db
       - elasticsearch
     networks:
       - default
-      - common_infra_network
-
 
   frontend:
     build: ./frontend_app
     container_name: frontend
-    # 포트 노출 제거: 외부에서 직접 접근하는 것을 막음 
-    # ports:
-    #   - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_BASE_URL: "http://localhost" # localhost
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost"
     depends_on:
       - fastapi
     networks:
       - default
 
+  mysql_db:
+    image: mysql:8.0
+    container_name: mysql_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_USER: ngms
+      MYSQL_PASSWORD: ms123
+      MYSQL_DATABASE: PolitiSearch
+    ports:
+      - "3307:3306"   # 로컬에서 접속 필요할 때만
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - default
 
   elasticsearch:
     build:
-      context:  ./elasticsearch_app
+      context: ./elasticsearch_app
       dockerfile: Dockerfile
     container_name: elasticsearch
     restart: always
@@ -67,8 +75,6 @@ services:
       - cluster.name=docker-cluster
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms2g -Xmx2g
-
-      # 보안 설정(ID/PW 사용, HTTPS 비활성화)
       - xpack.security.enabled=true
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
       - xpack.security.transport.ssl.enabled=false
@@ -85,7 +91,6 @@ services:
     networks:
       - default
 
-
   kibana:
     image: docker.elastic.co/kibana/kibana:8.11.0
     container_name: kibana
@@ -97,7 +102,6 @@ services:
       ELASTICSEARCH_HOSTS: 'http://elasticsearch:9200'
       ELASTICSEARCH_USERNAME: ${KIBANA_USERNAME}
       ELASTICSEARCH_PASSWORD: ${KIBANA_PASSWORD}
-      # 암호화 키 설정(임의의 문자열 32자 이상)
       XPACK_SECURITY_ENCRYPTIONKEY: ${XPACK_SECURITY_ENCRYPTIONKEY}
       XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY}
       XPACK_REPORTING_ENCRYPTIONKEY: ${XPACK_REPORTING_ENCRYPTIONKEY}
@@ -106,10 +110,6 @@ services:
     networks:
       - default
 
-networks:
-  common_infra_network:
-    external: true
-    name: common_infra_network
-
 volumes:
   esdata:
+  mysql_data:

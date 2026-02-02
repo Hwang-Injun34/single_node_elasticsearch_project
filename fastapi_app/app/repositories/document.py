@@ -11,7 +11,9 @@ class DocumentRepository:
     
     async def get_full_context_by_id(self, doc_id: int) -> Optional[Document]:
         """
-        Document ID를 기반으로 문서 정보와 연결된 모든 세그먼트 정보를 Eager Loading하여 반환
+        제목: 문서 전체 컨텍스트 조회
+        목적: 문서 정보와 연결된 모든 세그먼트를 함께 반환
+        핵심동작: joinedload로 Document.segments를 Eager Loading
         """
         stmt = (
             select(Document)
@@ -27,7 +29,9 @@ class DocumentRepository:
 
     async def get_metadata_only_by_id(self, doc_id: int) -> Optional[Document]:
         """
-        특정 문서 ID의 Document 객체(메타데이터, 특히 file_path)만 로드
+        제목: 문서 메타데이터 조회
+        목적: 세그먼트 없이 문서 기본 정보만 반환
+        핵심동작: Document 단일 엔티티 조회
         """
         stmt = select(Document).where(Document.id == doc_id)
         result = await self.db.execute(stmt)

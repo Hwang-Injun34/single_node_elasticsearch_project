@@ -17,12 +17,18 @@ class PdfExtractionRepository:
         self.db = db_p01 
     
     async def commit(self):
+        """ 
+        제목: 트랜잭션 커밋
+        목적: 현재 세션 변경 사항 DB 반영
+        핵심동작: commit() 호출
+        """
         await self.db.commit()
 
     async def get_unprocessed_pdfs_by_status(self, limit: int):
         """
-        아직 처리되지 않은(is_processed=False) 항목을 조회
-        Document 정보를 함께 로딩(joinedload)하여 N+1 문제를 방지
+        제목: 미처리 PDF 조회
+        목적: 아직 처리되지 않은 문서 목록 조회
+        핵심동작: PENDING 상태 DocumentProcess 조회(Document join)
         """
         stmt = (
             select(DocumentProcess)
@@ -36,7 +42,9 @@ class PdfExtractionRepository:
     
     async def save_extraction_result(self, process_id: int, save_data: DocumentContentSaveSchema):
         """
-        추출 결과를 DocumentContent 테이블에 저장(Insert)
+        제목: 추출 결과 저장
+        목적: PDF에서 추출한 텍스트 데이터를 DB에 저장
+        핵심동작: DocumentContent INSERT
         """
 
         content = DocumentContent(
@@ -48,7 +56,9 @@ class PdfExtractionRepository:
 
     async def update_process_status(self, process_id: int, status: ProcessStatus):
         """
-        DocumentProcess의 상태 업데이트
+        제목: 처리 상태 업데이트
+        목적: DocumentProcess 상태 변경 관리
+        핵심동작: status 컬럼 UPDATE
         """
         stmt = (
             update(DocumentProcess)

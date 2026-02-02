@@ -10,13 +10,20 @@ from app.models import Document, DocumentSegment
 from app.search.connection import es_async, es_sync
 from app.search.index_manager import INDEX_NAME
 
+"""
+제목: 회의록 Elasticsearch 색인기(Indexer)
+목적: RDB(DocumentSegment + Document) 데이터를 Elasticsearch 문서로 변환·적재
+핵심동작: DB에서 배치 조회 → ES Bulk API로 비동기 색인 수행
+"""
 class MinutesIndexer: 
     def __init__(self):
         self.index_name = INDEX_NAME
     
     async def index_all_documents(self, batch_size: int=500):
         """
-        [비동기] DB의 모든 세그먼트를 조회하여 ES에 색인 (Batch 처리)
+        제목: 전체 문서 세그먼트 색인
+        목적: 임베딩이 완료된 모든 세그먼트를 ES인덱스에 일괄 적재
+        핵심동작: Paging 조회 -> JSON 변환 -> async_bulk로 배치 색인
         """
         print(f"[Indexer] 전체 데이터 색인 시작 (Batch: {batch_size})")
 
@@ -27,7 +34,11 @@ class MinutesIndexer:
             total_indexed = 0 
 
             while True:
-                # [Step 1] DB 조회 (Paging)
+                # ===============================
+                # 제목: 1단계 - DB 배치 조회
+                # 목적: 메모리 과부하 없이 세그먼트를 페이지 안위로 로딩
+                # 핵심동작: embedding_vector가 존재하는 세그먼트만 limit/offset으로 조회
+                # ===============================
                 stmt = (
                     select(DocumentSegment)
                     .options(selectinload(DocumentSegment.document)) # 부모 정보 로딩
@@ -41,7 +52,11 @@ class MinutesIndexer:
                 if not segments:
                     break 
 
-                # [Step 2] 데이터 변환(RDB -> ES JSON)
+                # ===============================
+                # 제목: 2단계 - RDB -> ES 문서 변환
+                # 목적: ORM 객체를 Elasticsearch 인덱싱 포맷(JSON)으로 매핑
+                # 핵심동작: Document + Segment 필드 하나를 source 딕셔너리로 구성
+                # ===============================
                 actions = []
                 for seg in segments:
                     doc = seg.document # 부모 문서
@@ -77,15 +92,19 @@ class MinutesIndexer:
 
                     actions.append(action)
 
-                # [Step 3] Bulk Indexing (ES로 전송)
+                # ===============================
+                # 제목: 3단계 - Elasticsearch Bulk 색인
+                # 목적: 네트워크 호출 횟수를 줄이고 대량 데이터를 효율적으로 적재
+                # 핵심동작: helpers.async_bulk를 사용해 비동기 일괄 전송
+                # ===============================
                 if actions:
                     # async_bulk를 사용하여 비동기 전송
                     success_count, errors = await helpers.async_bulk(es_async, actions)
                     total_indexed += success_count 
-                    print(f"   ✅ {success_count}건 색인 완료 (누적: {total_indexed})")
+                    print(f" {success_count}건 색인 완료 (누적: {total_indexed})")
 
                     if errors:
-                        print(f"   ⚠️ 오류 발생: {errors}")
+                        print(f"오류 발생: {errors}")
                 
                 offset += batch_size 
 

@@ -1,21 +1,30 @@
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from app.search.indexer import MinutesIndexer
-import asyncio
-import time  # ✅ 시간 측정을 위해 추가
+import time
 
 router = APIRouter()
 indexer = MinutesIndexer()
 
-# 인덱싱 상태 추적 플래그
+"""
+제목: 색인 실행 상태 플래그
+목적: 중복 인덱싱 작업 방지
+핵심동작: 실행 중 True, 완료 시 False
+"""
 is_indexing_running = False
 
+
+"""
+제목: 백그라운드 색인 실행 함수
+목적: 전체 문서를 Elasticsearch에 비동기 색인
+핵심동작: 배치 단위 처리 후 결과 로그 출력
+"""
 async def run_indexing_and_cleanup(batch_size: int):
     global is_indexing_running
     is_indexing_running = True
     
-    # ✅ [1] 시작 시간 기록
+
     start_time = time.time()
-    print(f"\n🚀 [Start] 색인 작업을 시작합니다. (Batch Size: {batch_size})")
+    print(f"\n[Start] 색인 작업을 시작합니다. (Batch Size: {batch_size})")
 
     try:
         # 실제 색인 작업 실행
@@ -25,28 +34,32 @@ async def run_indexing_and_cleanup(batch_size: int):
         # result가 숫자가 아닐 경우를 대비한 안전장치
         count = result if isinstance(result, int) else 0
         
-        # ✅ [2] 종료 시간 기록 및 계산
+        # 종료 시간 기록 및 계산
         end_time = time.time()
         duration = end_time - start_time
         throughput = count / duration if duration > 0 else 0
         
-        # ✅ [3] 결과 로그 출력 (터미널에서 바로 확인 가능)
+        # 결과
         print(f"---------------------------------------------")
-        print(f"✅ [Complete] 색인 작업 완료")
+        print(f"[Complete] 색인 작업 완료")
         print(f" - 총 문서 수 : {count} 건")
         print(f" - 소요 시간  : {duration:.2f} 초")
         print(f" - 처리량     : {throughput:.2f} docs/sec")
         print(f"---------------------------------------------\n")
 
     except Exception as e:
-        print(f"❌ [Error] 색인 작업 실패: {e}")
+        print(f"[Error] 색인 작업 실패: {e}")
     finally:
         is_indexing_running = False
+
+
 
 @router.post("/start_indexing", status_code=status.HTTP_202_ACCEPTED)
 async def start_indexing(background_tasks: BackgroundTasks, batch_size: int = 500):
     """
-    전체 문서를 Elasticsearch에 색인하는 작업을 백그라운드에서 시작합니다.
+    제목: 색인 작업 시작 API
+    목적: 전체 문서 색인을 백그라운드로 실행
+    핵심동작: 실행 중 여부 확인 후 태스크 등록
     """
     global is_indexing_running
     
@@ -64,7 +77,12 @@ async def start_indexing(background_tasks: BackgroundTasks, batch_size: int = 50
         "status": "processing"
     }
 
+
 @router.get("/indexing_status")
 async def get_status():
-    """색인 작업의 현재 상태를 확인합니다."""
+    """
+    제목: 색인 상태 조회 API
+    목적: 현재 인덱싱 실행 여부 확인
+    핵심동작: 상태 플래그 반환
+    """
     return {"running": is_indexing_running}

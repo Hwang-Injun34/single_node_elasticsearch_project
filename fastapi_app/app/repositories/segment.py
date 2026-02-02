@@ -13,7 +13,9 @@ class SegmentRepository:
 
     async def get_by_id_with_document(self, segment_id: int) -> Optional[DocumentSegment]:
         """
-        Segment ID를 기반으로 Segment와 부모 Document를 Eager Loading하여 ORM 객체를 반환
+        제목: 세그먼트 단건 조회(Document 포함)
+        목적: 세그먼트 정보와 부모 Document를 함께 반환
+        핵심동작: selectionload로 Document 관계 로딩
         """
         stmt = (
             select(DocumentSegment)

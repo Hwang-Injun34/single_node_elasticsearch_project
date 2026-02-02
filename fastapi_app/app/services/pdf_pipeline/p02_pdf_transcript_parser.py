@@ -13,9 +13,23 @@ from app.schema.pdf import (
     TotalPageTextSchema
 )
 
-# ===============================
-# 2단계: 텍스트 발언 단위(segments) 파싱
-# ===============================
+# ============================================================
+# PdfTranscriptParserService
+# ------------------------------------------------------------
+# [제목]
+# PDF 회의록 텍스트 → 발언 단위(segments) 구조화 서비스
+#
+# [목적]
+# 1단계에서 추출된 PDF 페이지 텍스트를 분석하여
+# 화자별 발언 단위(segment)로 분리하고,
+# 페이지/화자/직책/발언 내용을 구조화된 스키마로 저장한다.
+#
+# [핵심 동작]
+# - 머리말, 의사일정, 종료 문구 등 불필요한 라인 제거
+# - ◯ 기호 기반 화자 발언 감지 및 화자/직책/내용 파싱
+# - 페이지 단위 SegmentSchema 리스트 생성
+# - 결과를 DB에 저장하고 처리 상태를 PARSED로 갱신
+# ============================================================
 class PdfTranscriptParserService:
     def __init__(self, db_p02: PdfTranscriptParserRepository):
         self.db_repo = db_p02
@@ -23,11 +37,39 @@ class PdfTranscriptParserService:
         # 정규식 패턴
         self.SPEAKER_RE = re.compile(r"^\s*[◯Oㅇ0]\s*(?P<Line>.*)")
         self.STOP_PATTERN = re.compile(r"\d{1,2}시\d{1,2}분\s*산회")
+
+        # 머리말(Header) 패턴
+        self.HEADER_RE = re.compile(
+            r"^\s*(\d+\s+)?제\s*\d+\s*회.*\(.*\d+년.*\d+월.*\d+일\)(\s+\d+)?\s*$"
+        )
+
+        # 의사 일정 식별: 숫자 + 안건명 + 의안번호
+        self.AGENDA_RE = re.compile(
+            r"^\s*\d+[\.\s]\s*.*"                   # 숫자. 으로 시작
+            r"(?:법률안|의안|안건|건|특별법안|보고)"   # 필수 키워드
+            r"(?:\(.*\d+\)?|(?:\s*\(대안\)))?"       # (의안번호) 또는 (대안) 등 (선택사항)
+        )
+
+        # 집단 응답 및 상황 묘사
+        self.COLLECTIVE_RE = re.compile(r"^\s*\([「]?.*[」]?\s*(?:하는\s*(?:위원|의원)(?:들)?\s*있음|있음|함)\)\s*$")
+
+
         
 
-    # -------------------------
-    #       [메인 함수]
-    # -------------------------
+    # ------------------------------------------------------------
+    # [메인 함수] PDF 텍스트 → 발언 세그먼트 파싱 파이프라인
+    # ------------------------------------------------------------
+    # [목적]
+    # Extraction 단계가 완료된 PDF 텍스트 데이터를 조회하여,
+    # 화자 단위 발언(segment) 구조로 변환하고 DB에 저장한다.
+    #
+    # [핵심 동작]
+    # 1. PARSED 이전 상태의 PDF 텍스트 데이터 조회
+    # 2. zlib 압축 해제 및 PageTextSchema 리스트 복원
+    # 3. 페이지별 텍스트 라인을 순회하며 화자 발언 감지
+    # 4. SegmentSchema 및 PageSegmentsSchema 구조 생성
+    # 5. 결과 저장 및 프로세스 상태 PARSED로 업데이트
+    # ------------------------------------------------------------
     async def segmentize_pages(self, limit: int = 1):
         
         # -- [Step 1] 대상 조회 (Extraction 완료된 건들) --
@@ -87,16 +129,36 @@ class PdfTranscriptParserService:
                     for line in lines:
                         line = line.strip()
                         if not line: continue
+                        
+                        # [2-1]머리말(Header) 제거 로직
+                        if self.HEADER_RE.match(line):
+                            continue 
 
-                        # [2-1] 종료 패턴 감지 ("산회")
+
+                        # [2-2] 종료 패턴 감지 ("산회")
                         if self.STOP_PATTERN.search(line):
                             # 현재까지의 버퍼 저장 후 전체 종료
                             if current_speaker_info and current_text_lines:
                                 self._add_segment_info(page_segments, page_number, local_segment_id, current_speaker_info, current_text_lines)
                                 current_text_lines = []
                             break 
+
+                        # [2-3] 의사일정 목록 감지
+                        # 확실한 안건 목록 패턴 존재 시, 이전 화자의 발언을 저장하고 화자 상태를 해제
+                        if self.AGENDA_RE.match(line):
+                            if current_speaker_info and current_text_lines:
+                                self._add_segment_info(page_segments, page_number, local_segment_id, current_speaker_info, current_text_lines)
+                                local_segment_id += 1 
+                                current_text_lines = []
+                            
+                            current_speaker_info = None # 화자 해제: 이제부터 나오는 텍스트는 다음 화자까지 무시
+                            continue
                         
-                        # [2-2] 새 화자 패턴 
+                        # [2-4] 집단 응답 감지 시 "완전 무시"
+                        if self.COLLECTIVE_RE.match(line):
+                            continue
+                        
+                        # [2-5] 새 화자 패턴 
                         # ◯ 로 시작하는지 확인
                         match = self.SPEAKER_RE.match(line)
                         if match:
@@ -127,7 +189,7 @@ class PdfTranscriptParserService:
                                 current_text_lines.append(content)
                             continue
 
-                        # [2-3] 텍스트 누적 (화자가 식별된 상태일 때만)
+                        # [2-6] 텍스트 누적 (화자가 식별된 상태일 때만)
                         if current_speaker_info:
                             current_text_lines.append(line)
                 
@@ -168,9 +230,18 @@ class PdfTranscriptParserService:
         
         return processed_count
     
-    # -------------------------
-    #       [보조 함수]
-    # -------------------------
+    # ------------------------------------------------------------
+    # [보조 함수] 화자 라인 파싱 로직
+    # ------------------------------------------------------------
+    # [목적]
+    # "소위원장 김용민 의사진행..." 형태의 문자열에서
+    # 화자 이름, 직책, 발언 내용을 분리 추출한다.
+    #
+    # [핵심 동작]
+    # - 공백 기준 토큰 분리
+    # - "이름 위원", "직책 이름", "부처명 직책 이름" 패턴 분기 처리
+    # - 실패 시 안전하게 기본값 반환
+    # ------------------------------------------------------------
     def _parse_speaker_line_logic(self, text: str) -> Tuple[str, str, str]:
         """
         문자열을 공백으로 쪼개서 이름/직책/내용을 추론합니다.
@@ -217,6 +288,18 @@ class PdfTranscriptParserService:
         
         return name, role, content
     
+    # ------------------------------------------------------------
+    # [보조 함수] 발언 세그먼트 객체 생성 및 리스트 추가
+    # ------------------------------------------------------------
+    # [목적]
+    # 현재까지 누적된 화자 발언 텍스트를 SegmentSchema 객체로
+    # 변환하여 페이지 세그먼트 리스트에 추가한다.
+    #
+    # [핵심 동작]
+    # - segment_id = "{page}_{local_id}" 형식으로 생성
+    # - speaker_name, speaker_role, text 필드 매핑
+    # - segment_list에 append 수행
+    # ------------------------------------------------------------
     def _add_segment_info(self, segment_list, page_num, seg_id, speaker_info, text_lines):
         """
         세그먼트 생성 및 리스트 추가 헬퍼
@@ -231,7 +314,19 @@ class PdfTranscriptParserService:
         segment_list.append(segment)
     
 
-
+    # ------------------------------------------------------------
+    # [보조 함수] 압축된 페이지 텍스트 복원
+    # ------------------------------------------------------------
+    # [목적]
+    # DB에 zlib 압축 + JSON 직렬화된 페이지 텍스트 데이터를
+    # TotalPageTextSchema → PageTextSchema 리스트 형태로 복원한다.
+    #
+    # [핵심 동작]
+    # - zlib.decompress로 바이너리 복원
+    # - UTF-8 디코딩 후 JSON 문자열 획득
+    # - Pydantic 모델 검증 및 역직렬화 수행
+    # - 실패 시 빈 리스트 반환
+    # ------------------------------------------------------------
     def _get_page_text_object(self, compressed_data: bytes) -> List[PageTextSchema]:
         """
         1단계에서 TotalPageTextSchema로 저장했으므로

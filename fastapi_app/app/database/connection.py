@@ -1,9 +1,13 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base 
 from typing import AsyncGenerator 
-
 from app.core.config import settings 
 
+"""
+제목: 비동기 DB 엔진 및 세션 설정
+목적: FastAPI 환경에서 안전한 비동기 DB 접근 구성
+핵심동작: 엔진 생성 -> 세션 팩토리 구성 -> ORM Base 정의
+"""
 
 # [간단 설명]
 # engine = DB 연결 엔진

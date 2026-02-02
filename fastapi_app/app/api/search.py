@@ -16,15 +16,17 @@ async def search_minutes(
     service: SearchService = Depends(get_search_service)
 ):
     """
-    국회 회의록 하이브리드 검색 API
+    제목: 국회 회의록 검색 API 
+    목적: 키워드 기반 회의록 하이브리드 검색 제공
+    핵심동작: 검색 실행 -> 응답 시간 측정 -> 결과 반환
     """
-    # ✅ [1] 시작 시간 기록
+    # 시작 시간 기록
     start_time = time.time()
     
     # 서비스 로직 실행
     result = await service.search_minutes(q, committee, limit)
     
-    # ✅ [2] 종료 시간 기록 및 계산
+    # 종료 시간 기록 및 계산
     end_time = time.time()
     duration = end_time - start_time
     
@@ -33,7 +35,7 @@ async def search_minutes(
     else:
         hit_count = getattr(result, 'total_hits', 'Unknown')
 
-    print(f"\n📊 [Total Latency] 전체 소요 시간")
+    print(f"\n[Total Latency] 전체 소요 시간")
     print(f" - 검색어    : '{q}'")
     print(f" - 소요 시간 : {duration:.4f} sec")
     print(f" - 결과 건수 : {hit_count}") 

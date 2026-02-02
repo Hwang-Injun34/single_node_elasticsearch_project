@@ -4,6 +4,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path 
 
 class Settings(BaseSettings):
+    """
+    제목: 애플리케이션 환경 설정 클래스
+    목적: DB, Elasticsearch, 크롤링, PDF, NLP 모델 관련 설정 중앙 관리
+    핵심동작: 환경 변수 또는 기본값을 로드하여 전역 설정 객체 생성
+    """
     
     # -- Mysql --
     # Database URL
@@ -35,6 +40,13 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL_NAME: str= "jhgan/ko-sbert-nli"
     DEBUG: bool = False
 
+    # -- SBERT --
+    SBERT_MODEL_PATH: str = "/app/app/ko-sbert"
+
+    # KeyBERT 기반 키워드 추출 품질 조절
+    # 다양성 및 상위 키워드 개수 설정
+    KEYBERT_DIVERSITY: float = 0.3
+    KEYBERT_TOP_N: int = 5
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -43,5 +55,5 @@ class Settings(BaseSettings):
     )
     
 
+# 애플리케이션 전반에서 공통 설정 접근 제공
 settings = Settings()
-

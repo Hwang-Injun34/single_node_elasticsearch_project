@@ -12,6 +12,11 @@ async def get_document_context(
     doc_id: str = Path(..., description="조회할 문서의 고유 ID"), 
     document_service: DocumentService = Depends(get_document_service)
 ): 
+    """
+    제목: 문서 상세 조회 API
+    목적: 특성 문서 ID에 해당하는 메타데이터 및 본문 정보 제공
+    핵심동작: 문서 서비스 조회 -> 없으면 404 -> 데이터 반환
+    """
     document_data = await document_service.get_document_context(doc_id)
 
     if not document_data: 
@@ -26,7 +31,9 @@ async def server_document_pdf(
     document_service: DocumentService = Depends(get_document_service)
 ): 
     """
-    특정 문서의 PDF 파일을 스트리밍(미리보기 기능 제공)
+    제목: 문서 PDF 스트리밍 API 
+    목적: 특정 문서의 PDF 파일을 브라우저에서 미리보기/다운로드 제공
+    핵심동작: 파일 경로 조회 -> FileResponse로 스트리밍 반환
     """
     file_path_obj = await document_service.get_pdf_file_path(doc_id)
 

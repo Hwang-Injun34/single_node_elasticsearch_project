@@ -11,6 +11,11 @@ async def get_segment_detail(
     segment_id: str = Path(..., description="조회할 세그먼트의 고유 ID"),
     segment_service: SegmentService = Depends(get_segment_service)
 ): 
+    """
+    제목: 세그먼트 상세 조회 API
+    목적: 특정 세그먼트의 메타데이터 및 내용 반환
+    핵심동작: 세그먼트 조회 -> 없으면 404 -> 결과 반환
+    """
     segment_data = await segment_service.get_segment_detail(segment_id)
 
     if not segment_data:

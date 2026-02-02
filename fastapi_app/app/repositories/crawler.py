@@ -12,6 +12,11 @@ class NationalAssemblyCrawlerRepository:
         self.db = db 
 
     async def commit(self):
+        """
+        제목: 트랜잭션 커밋
+        목적: 현재 세션의 변경 사항 DB 반영
+        핵심동작: commit() 호출
+        """
         await self.db.commit()
 
     # ----------------------------------------
@@ -19,7 +24,9 @@ class NationalAssemblyCrawlerRepository:
     # ----------------------------------------
     async def is_crawled(self, conferNum: str) -> bool:
         """
-        doc_id(문서 고유번호)가 DB에 존재하는지 확인
+        제목: 문서 중복 여부 확인
+        목적: 이미 수집된 문서인지 사전 검증
+        핵심동작: conferNum 기준 존재 여부 조회
         """
         stmt = select(Document).where(Document.conferNum == conferNum)
         result = await self.db.execute(stmt)
@@ -32,7 +39,9 @@ class NationalAssemblyCrawlerRepository:
     # ----------------------------------------
     async def save_document_1(self, doc_data: DocumentCreate) -> int:
         """
-        크롤링한 문서 정보를 DB에 저장
+        제목: 문서 단건 저장
+        목적: 크롤링한 문서 메타데이터 DB 저장
+        핵심동작: Document INSERT -> ID 변환
         """
         document = Document(
             className = doc_data["className"],
@@ -64,7 +73,9 @@ class NationalAssemblyCrawlerRepository:
     # ----------------------------------------
     async def save_document(self, doc_data: dict) -> Document:
         """
-        Document 저장 -> DocumentProcess(PENDING) 생성
+        제목: 문서 및 처리 상태 초기화 저장
+        목적: Document 저장과 동시에 처리 상태(PENDING) 생성
+        핵심동작: Document INSERT -> DocumentProcess 생성 -> 커밋
         """
         # 1. Document 저장
         new_doc = Document(**doc_data)

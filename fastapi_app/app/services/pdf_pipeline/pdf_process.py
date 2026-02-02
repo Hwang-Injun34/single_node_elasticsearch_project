@@ -4,6 +4,23 @@ from .p02_pdf_transcript_parser import PdfTranscriptParserService
 from .p03_track_a import PdfKeywordExtractorService 
 from .p03_track_b import PdfEmbeddingExtractorService
 
+# ============================================================
+# PDF 문서 처리 전체 파이프라인 오케스트레이터
+# ------------------------------------------------------------
+# [제목]
+# PdfProcessService
+#
+# [목적]
+# PDF → 텍스트 추출 → 발언 파싱 → 키워드 추출 → 임베딩 생성까지의
+# 전체 문서 처리 흐름을 단계별로 조율하고 실행한다.
+#
+# [핵심 동작]
+# - 단계별 서비스(P01~P03)를 순차 실행
+# - 각 단계 실행 로그 출력
+# - 전체 파이프라인 단일 진입점(run_full_pipeline) 제공
+# ============================================================
+
+
 class PdfProcessService: 
     def __init__(
         self,

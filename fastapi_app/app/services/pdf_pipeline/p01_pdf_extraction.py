@@ -1,4 +1,3 @@
-# import fitz 
 import pdfplumber
 import asyncio
 import zlib
@@ -9,15 +8,18 @@ from app.schema.pdf import DocumentContentSaveSchema, TotalPageTextSchema, PageT
 from app.models.document_processes import ProcessStatus
 
 # ===============================
-# 1단계: PDF -> 텍스트 추출
+# 제목: PDF 텍스트 추출 서비스
+# 목적: PDF 파일을 페이지 단위 텍스트로 변환하여 DB에 저장
+# 핵심동작: PDF → 텍스트 추출 → 압축 → 상태 업데이트
 # ===============================
-
 class PdfExtractionService:
     def __init__(self, db_p01: PdfExtractionRepository):
         self.db_repo = db_p01
     
     # -------------------------
-    #       [메인 함수]
+    # 제목: PDF 추출 메인 실행 함수
+    # 목적: 미처리 PDF 문서를 조회하여 전체 추출 파이프라인 수행
+    # 핵심동작: 대상 조회 → 텍스트 추출 → 저장 → 상태 변경
     # -------------------------
     async def execute_pdf_extraction(self, limit: int = 3):
         """
@@ -76,7 +78,9 @@ class PdfExtractionService:
             print(f"총 {processed_count}건 처리 완료 및 커밋됨.")
 
     # -------------------------
-    #       [보조 함수]
+    # 제목: PDF 텍스트 비동기 추출 래퍼
+    # 목적: 동기 PDF 라이브러리를 비동기 환경에서 안전하게 실행
+    # 핵심동작: asyncio.to_thread()로 동기 함수 실행
     # -------------------------
     async def _extract_text_from_pdf(self, path: str) -> list:
         """
@@ -85,11 +89,12 @@ class PdfExtractionService:
         return await asyncio.to_thread(self._sync_extract_pdf, path)
 
 
+    # -------------------------
+    # 제목: PDF 텍스트 동기 추출 함수
+    # 목적: pdfplumber로 페이지별 텍스트를 실제 추출
+    # 핵심동작: 페이지 순회 → 텍스트 정규화 → 스키마 변환
+    # -------------------------
     def _sync_extract_pdf(self, path: str) -> TotalPageTextSchema:
-        """
-        [핵심 변경] pdfplumber를 이용한 텍스트 추출
-        - x_tolerance: 글자 사이 간격 허용치 (기본값보다 조금 줄여서 단어 분리 명확화)
-        """
         pages_list = []
         
         try:
@@ -110,7 +115,7 @@ class PdfExtractionService:
                     pages_list.append(PageTextSchema(page_num=i+1, text=text))
                     
         except Exception as e:
-            print(f"❌ PDF 열기 실패 ({path}): {e}")
+            print(f"PDF 열기 실패 ({path}): {e}")
             raise e
 
         return TotalPageTextSchema(page_list=pages_list)
